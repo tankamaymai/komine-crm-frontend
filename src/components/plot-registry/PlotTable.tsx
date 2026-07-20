@@ -161,6 +161,7 @@ export function PlotTable({
                   <span>契約日</span>
                 </div>
               </th>
+              {/* 入金/管理料/次請求の意味をツールチップで説明（システム確認 項目③） */}
               <th
                 className={cn(
                   "px-2 py-2 text-center text-xs font-bold text-white cursor-pointer transition-all duration-200",
@@ -168,6 +169,7 @@ export function PlotTable({
                   sortKey === 'paymentStatus' && "bg-matsu-dark"
                 )}
                 onClick={() => onSort('paymentStatus')}
+                title="使用料・管理料の入金状況（入金済・未入金・一部入金・滞納）。未入金は黄色、滞納は赤色の行で表示されます。クリックで並べ替え"
               >
                 <div className="flex items-center justify-center">
                   <span>入金</span>
@@ -180,12 +182,16 @@ export function PlotTable({
                   sortKey === 'managementFee' && "bg-matsu-dark"
                 )}
                 onClick={() => onSort('managementFee')}
+                title="登録されている管理料の金額。クリックで並べ替え"
               >
                 <div className="flex items-center justify-center">
                   <span>管理料</span>
                 </div>
               </th>
-              <th className="px-2 py-2 text-left text-xs font-bold text-white hidden md:table-cell">
+              <th
+                className="px-2 py-2 text-left text-xs font-bold text-white hidden md:table-cell"
+                title="次回請求予定の年月（管理料の終納請求年月の翌月）。終納請求年月が未登録の区画は「-」"
+              >
                 <span>次請求</span>
               </th>
               {/* 詳細遷移アフォーダンス列 (#163) */}

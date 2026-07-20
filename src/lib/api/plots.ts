@@ -20,6 +20,8 @@ import {
   RestoreContractResponse,
   GraveClassificationsResponse,
   BillingRecordStatus,
+  CreatePhysicalPlotRequest,
+  CreatePhysicalPlotResponse,
 } from '@komine/types';
 import { apiGet, apiPost, apiPut, apiDelete, shouldUseMockData } from './client';
 import { ApiResponse } from './types';
@@ -654,6 +656,33 @@ export async function getPlots(
       totalPages: response.data.pagination.totalPages,
     },
   };
+}
+
+/**
+ * 空き区画（物理区画のみ）の先行登録（システム確認 項目⑦）
+ * 旧システムの「区画を先ず作り、後から契約者を入れる」運用に対応。
+ * 登録された区画は契約が付くまで区画残数管理に「空き」として現れる。
+ */
+export async function createPhysicalPlot(
+  request: CreatePhysicalPlotRequest
+): Promise<ApiResponse<CreatePhysicalPlotResponse>> {
+  if (shouldUseMockData()) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    return {
+      success: true,
+      data: {
+        id: `mock-physical-${Date.now()}`,
+        plotNumber: request.plotNumber,
+        displayNumber: request.displayNumber ?? null,
+        areaName: request.areaName,
+        areaSqm: request.areaSqm ?? 3.6,
+        status: PhysicalPlotStatus.Available,
+        notes: request.notes ?? null,
+        createdAt: new Date().toISOString(),
+      },
+    };
+  }
+  return apiPost<CreatePhysicalPlotResponse>('/plots/physical', request);
 }
 
 /**

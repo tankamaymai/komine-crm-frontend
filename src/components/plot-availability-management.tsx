@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ClipboardList, Check, X, BarChart3, Hash, Layers, PieChart, Grid3X3, ChevronDown, ChevronUp } from 'lucide-react';
+import { ClipboardList, Check, X, BarChart3, Hash, Layers, PieChart, Grid3X3, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
+import { CreateVacantPlotDialog } from '@/components/create-vacant-plot-dialog';
 import {
   Select,
   SelectContent,
@@ -57,10 +59,21 @@ export default function PlotAvailabilityManagement() {
   const [isPeriodCardsExpanded, setIsPeriodCardsExpanded] = useState(true);
 
   // API Hooks
-  const { summary: inventorySummary, isLoading: isSummaryLoading } = usePlotInventorySummary();
-  const { periods: periodSummaries, isLoading: isPeriodsLoading } = usePlotInventoryPeriods();
+  const { summary: inventorySummary, isLoading: isSummaryLoading, refresh: refreshSummary } = usePlotInventorySummary();
+  const { periods: periodSummaries, isLoading: isPeriodsLoading, refresh: refreshPeriods } = usePlotInventoryPeriods();
   const sectionsHook = usePlotInventorySections();
   const areasHook = usePlotInventoryAreas();
+
+  // 空き区画の先行登録（システム確認 項目⑦）。閲覧のみ（viewer）には出さない
+  const { user } = useAuth();
+  const canRegisterVacant = !!user && ['operator', 'manager', 'admin'].includes(user.role);
+  const [isVacantDialogOpen, setIsVacantDialogOpen] = useState(false);
+  const handleVacantCreated = () => {
+    refreshSummary();
+    refreshPeriods();
+    sectionsHook.refresh();
+    areasHook.refresh();
+  };
 
   // useCallback 済みで安定した setter 群を取り出す。フックの戻り値オブジェクト自体は
   // 毎レンダー新しい参照になるため、effect の依存にはこの安定 setter を使う。
@@ -257,6 +270,16 @@ export default function PlotAvailabilityManagement() {
                 {selectedPeriod}
                 <X className="w-3.5 h-3.5" />
               </button>
+            </div>
+          )}
+
+          {/* 空き区画の先行登録（旧システムの「区画を先ず作る」運用。項目⑦） */}
+          {canRegisterVacant && (
+            <div className="sm:ml-auto">
+              <Button size="sm" onClick={() => setIsVacantDialogOpen(true)} className="cursor-pointer">
+                <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
+                空き区画を登録
+              </Button>
             </div>
           )}
         </div>
@@ -958,6 +981,13 @@ export default function PlotAvailabilityManagement() {
           </div>
         </div>
       </div>
+
+      {/* 空き区画の先行登録ダイアログ（項目⑦） */}
+      <CreateVacantPlotDialog
+        isOpen={isVacantDialogOpen}
+        onClose={() => setIsVacantDialogOpen(false)}
+        onCreated={handleVacantCreated}
+      />
     </div>
   );
 }

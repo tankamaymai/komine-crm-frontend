@@ -394,7 +394,13 @@ function BasicInfoTab({
       {/* 契約情報 */}
       <Section title="契約情報">
         <InfoField label="契約日" value={formatDate(plot.contractDate)} emptyKind={contractEmptyKind} />
-        <InfoField label="契約金額" value={formatCurrency(plot.price)} emptyKind={contractEmptyKind} />
+        {/* 契約金額＝旧システムの「使用料」を引き継いだ金額（管理料は料金情報タブ。システム確認 項目⑥） */}
+        <InfoField
+          label="契約金額"
+          value={formatCurrency(plot.price)}
+          emptyKind={contractEmptyKind}
+          hint="区画の使用料（旧システムの使用料欄を引き継いだ金額。管理料は含まない）"
+        />
         <InfoField label="利用申込" value={CONTRACT_STATUS_LABELS[plot.contractStatus as ContractStatus]} />
         <InfoField label="入金状態" value={PAYMENT_STATUS_LABELS[plot.paymentStatus as PaymentStatus]} />
         <InfoField label="予約日" value={formatDate(plot.reservationDate)} />
