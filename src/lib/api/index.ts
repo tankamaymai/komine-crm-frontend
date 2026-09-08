@@ -189,6 +189,7 @@ export {
   createBilling,
   updateBilling,
   deleteBilling,
+  getUnpaidBillings,
   BILLING_CATEGORY_LABELS,
   BILLING_RECORD_STATUS_LABELS,
 } from './billings';
@@ -200,6 +201,7 @@ export {
   createPayment,
   updatePayment,
   deletePayment,
+  settleRemaining,
 } from './payments';
 
 // 区画在庫管理APIのエクスポート

@@ -20,6 +20,8 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   onConfirm: () => void;
   variant?: 'default' | 'destructive';
+  /** true のとき実行ボタンを出さない（見るだけの確認） */
+  hideConfirm?: boolean;
 }
 
 export function ConfirmDialog({
@@ -31,6 +33,7 @@ export function ConfirmDialog({
   cancelLabel = 'キャンセル',
   onConfirm,
   variant = 'default',
+  hideConfirm = false,
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -41,12 +44,14 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            className={variant === 'destructive' ? 'bg-beni text-white hover:bg-beni-light' : ''}
-          >
-            {confirmLabel}
-          </AlertDialogAction>
+          {!hideConfirm && (
+            <AlertDialogAction
+              onClick={onConfirm}
+              className={variant === 'destructive' ? 'bg-beni text-white hover:bg-beni-light' : ''}
+            >
+              {confirmLabel}
+            </AlertDialogAction>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

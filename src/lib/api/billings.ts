@@ -22,6 +22,8 @@ import {
   CreatePrepaidBillingRequest,
   CreatePrepaidBillingResponse,
   DeletePrepaidBillingResponse,
+  ListUnpaidBillingsQuery,
+  UnpaidBillingsResponse,
 } from '@komine/types';
 import { apiDelete, apiGet, apiPost, apiPut } from './client';
 import { ApiResponse } from './types';
@@ -113,6 +115,17 @@ export function deletePrepaidBilling(
   batchId: string
 ): Promise<ApiResponse<DeletePrepaidBillingResponse>> {
   return apiDelete<DeletePrepaidBillingResponse>(`${BASE}/prepaid/${batchId}`);
+}
+
+/** 窓口入金用: 名前・区画から未払い請求を探す */
+export function getUnpaidBillings(
+  query: ListUnpaidBillingsQuery
+): Promise<ApiResponse<UnpaidBillingsResponse>> {
+  return apiGet<UnpaidBillingsResponse>(`${BASE}/unpaid`, {
+    q: query.q,
+    year: query.year,
+    category: query.category,
+  });
 }
 
 // ===== ラベル定義（UI 表示用） =====
