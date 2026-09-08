@@ -3,7 +3,7 @@ import { UserRole } from '@/types/plot-detail';
 export interface NavItem {
   label: string;
   path: string;
-  icon: 'search' | 'archive' | 'grid' | 'file-text' | 'users' | 'settings' | 'bank' | 'printer';
+  icon: 'search' | 'archive' | 'grid' | 'file-text' | 'users' | 'settings' | 'bank' | 'printer' | 'cash';
   requiredRoles: UserRole[];
   /** 各機能の役割・業務フロー上の位置づけ（ツールチップ／補足表示に使用 #191） */
   description?: string;
@@ -26,6 +26,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: '区画残数管理', path: '/plot-availability', requiredRoles: ['viewer', 'operator', 'manager', 'admin'], icon: 'grid', description: '区画の空き状況・使用率を期別に集計' },
       { label: '書類管理', path: '/documents', requiredRoles: ['viewer', 'operator', 'manager', 'admin'], icon: 'file-text', description: '許可証・封筒などの書類を発行・管理' },
       { label: '請求書一括印刷', path: '/bulk-invoice', requiredRoles: ['operator', 'manager', 'admin'], icon: 'printer', description: '十年一回・五年一回払いの護持費のお知らせをまとめて出力' },
+      {
+        label: '窓口入金',
+        path: '/cashier',
+        requiredRoles: ['viewer', 'operator', 'manager', 'admin'],
+        icon: 'cash',
+        description: '窓口で名前から未払いを探して、残額をその場で入れる',
+      },
       { label: 'ゆうちょ連携', path: '/yucho', requiredRoles: ['manager', 'admin'], icon: 'bank', description: '管理料の口座振替データ（CSV）を出力' },
     ],
   },

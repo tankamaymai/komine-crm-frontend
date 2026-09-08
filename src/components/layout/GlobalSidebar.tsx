@@ -26,6 +26,8 @@ function MenuIcon({ icon, className = 'w-5 h-5' }: { icon: NavItem['icon']; clas
       return <svg {...props}><path {...pathProps} d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11m4-11v11m4-11v11m4-11v11m4-11v11" /></svg>;
     case 'printer':
       return <svg {...props}><path {...pathProps} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m10 0v4H7v-4m10 0H7m10-8V3H7v6" /></svg>;
+    case 'cash':
+      return <svg {...props}><path {...pathProps} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
   }
 }
 
