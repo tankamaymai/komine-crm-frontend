@@ -66,4 +66,9 @@ test.describe('主要画面 smoke（#140）', () => {
     await page.getByRole('button', { name: '前受金を一括登録' }).click();
     await expect(page.getByLabel('受領額')).toBeVisible({ timeout: 10_000 });
   });
+
+  test('140-10: 未収金一覧の見出しが表示される', async ({ page }) => {
+    await page.goto('/uncollected');
+    await expect(page.getByText('未収金一覧').first()).toBeVisible({ timeout: TIMEOUT });
+  });
 });

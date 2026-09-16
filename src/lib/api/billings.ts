@@ -24,6 +24,8 @@ import {
   DeletePrepaidBillingResponse,
   ListUnpaidBillingsQuery,
   UnpaidBillingsResponse,
+  ListUncollectedBillingsQuery,
+  UncollectedBillingsResponse,
 } from '@komine/types';
 import { apiDelete, apiGet, apiPost, apiPut } from './client';
 import { ApiResponse } from './types';
@@ -125,6 +127,18 @@ export function getUnpaidBillings(
     q: query.q,
     year: query.year,
     category: query.category,
+  });
+}
+
+/** 未収金一覧用: 護持費の未払い請求を全員分探す（名前は空でよい） */
+export function getUncollectedBillings(
+  query: ListUncollectedBillingsQuery = {}
+): Promise<ApiResponse<UncollectedBillingsResponse>> {
+  return apiGet<UncollectedBillingsResponse>(`${BASE}/uncollected`, {
+    q: query.q,
+    year: query.year,
+    page: query.page,
+    limit: query.limit,
   });
 }
 
