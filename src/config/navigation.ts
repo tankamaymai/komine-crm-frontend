@@ -33,6 +33,13 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: 'cash',
         description: '窓口で名前から未払いを探して、残額をその場で入れる',
       },
+      {
+        label: '未収金一覧',
+        path: '/uncollected',
+        requiredRoles: ['viewer', 'operator', 'manager', 'admin'],
+        icon: 'cash',
+        description: '護持費で、まだ払っていない請求を一覧する',
+      },
       { label: 'ゆうちょ連携', path: '/yucho', requiredRoles: ['manager', 'admin'], icon: 'bank', description: '管理料の口座振替データ（CSV）を出力' },
     ],
   },

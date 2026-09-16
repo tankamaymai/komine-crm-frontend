@@ -190,6 +190,7 @@ export {
   updateBilling,
   deleteBilling,
   getUnpaidBillings,
+  getUncollectedBillings,
   BILLING_CATEGORY_LABELS,
   BILLING_RECORD_STATUS_LABELS,
 } from './billings';
