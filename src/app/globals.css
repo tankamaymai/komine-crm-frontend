@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans CJK JP", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans CJK JP", sans-serif;
 }
 
 /* ============================================================
@@ -107,6 +107,11 @@ body {
   --color-kohaku-700: #84692a;
   --color-kohaku-800: #644c1a;
   --color-kohaku-900: #442f0a;
+
+  /* 動き（押した感・窓の開閉用。ゆっくり始まりは使わない） */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
   /* グラデーション */
   --gradient-warm: linear-gradient(135deg, #fafaf8 0%, #f5f3ef 100%);
@@ -422,16 +427,17 @@ body {
   padding: 12px 24px;
   border: 2px solid transparent;
   border-radius: 8px;
-  transition: all 0.2s ease-in-out;
+  transition: transform 160ms var(--ease-out), background-color 160ms ease, box-shadow 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
-.btn-senior:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+@media (hover: hover) and (pointer: fine) {
+  .btn-senior:hover {
+    box-shadow: 0 4px 12px rgba(26, 26, 26, 0.12);
+  }
 }
 
 .btn-senior:active {
-  transform: translateY(0);
+  transform: scale(0.97);
 }
 
 /* ステータス色のパターン対応（色覚バリアフリー） */
@@ -462,27 +468,26 @@ body {
   border: 3px solid #d1d5db;
   background: white;
   border-radius: 10px;
-  transition: all 0.2s ease;
+  transition: transform 160ms var(--ease-out), background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.05);
 }
 
-.aiueo-tab:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #64748b;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+@media (hover: hover) and (pointer: fine) {
+  .aiueo-tab:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #64748b;
+  }
 }
 
 .aiueo-tab.active {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, #2d5a3d, #1e3d29);
   color: white;
-  border-color: #1e40af;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-  transform: translateY(-1px);
+  border-color: #1e3d29;
+  box-shadow: 0 4px 12px rgba(45, 90, 61, 0.28);
 }
 
 .aiueo-tab:disabled {
@@ -499,25 +504,25 @@ body {
 }
 
 .aiueo-tab:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform: scale(0.97);
 }
 
 /* 顧客行のアクセシビリティ向上 */
 .customer-row {
   min-height: 80px;
   border: 1px solid #e5e7eb;
-  transition: all 0.2s ease-in-out;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms var(--ease-out);
   border-radius: 8px;
   margin-bottom: 2px;
 }
 
-.customer-row:hover {
-  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-  border-color: #64748b;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .customer-row:hover {
+    background: #f8fafc;
+    border-color: #64748b;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(26, 26, 26, 0.06);
+  }
 }
 
 .customer-row:focus-visible {
@@ -531,12 +536,10 @@ body {
   background: linear-gradient(135deg, #dbeafe, #bfdbfe);
   border-color: #2563eb;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
-  transform: scale(1.01);
 }
 
 .customer-row:active {
-  transform: translateY(0) scale(0.99);
-  transition: transform 0.1s ease;
+  transform: scale(0.99);
 }
 
 /* ステータス表示の強化 */
@@ -561,7 +564,47 @@ body {
 /* 大きなフォントサイズのメディアクエリ */
 @media (prefers-reduced-motion: no-preference) {
   .smooth-transition {
-    transition: all 0.2s ease-in-out;
+    transition: transform 200ms var(--ease-out), opacity 200ms var(--ease-out);
+  }
+}
+
+/* 確認の窓・引き出し：突然出ずに、少し縮んだところから現れる */
+.dialog-overlay {
+  opacity: 1;
+  transition: opacity 200ms var(--ease-out);
+}
+
+@starting-style {
+  .dialog-overlay {
+    opacity: 0;
+  }
+}
+
+.dialog-panel {
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: center;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+
+@starting-style {
+  .dialog-panel {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@media (max-width: 639px) {
+  .dialog-panel {
+    transform: translateY(0);
+    transition: transform 400ms var(--ease-drawer), opacity 200ms var(--ease-out);
+  }
+
+  @starting-style {
+    .dialog-panel {
+      opacity: 1;
+      transform: translateY(100%);
+    }
   }
 }
 

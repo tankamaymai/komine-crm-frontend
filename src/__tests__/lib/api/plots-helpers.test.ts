@@ -107,6 +107,7 @@ function makePlotListItem(overrides: Partial<PlotListItem> = {}): PlotListItem {
     price: 500000,
     uncollectedAmount: 0,
     paymentStatus: PaymentStatus.Paid,
+    contractStatus: ContractStatus.Active,
     customerName: '田中太郎',
     customerNameKana: 'タナカタロウ',
     customerPhoneNumber: '09012345678',
@@ -125,6 +126,8 @@ function makePlotListItem(overrides: Partial<PlotListItem> = {}): PlotListItem {
     permitNumber: null,
     nextBillingDate: '2025-04-01',
     managementFee: '5000',
+    managementFeeBillingType: null,
+    managementFeeBillingYears: null,
     billingSummary: {
       hasBilling: false,
       latestYear: null,

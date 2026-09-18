@@ -22,6 +22,12 @@ import {
   type ColumnWidths,
   type ResizableColumnKey,
 } from '@/lib/plots-column-widths';
+import {
+  DEFAULT_PLOT_DISPLAY_SETTINGS,
+  loadPlotDisplaySettings,
+  savePlotDisplaySettings,
+  type PlotDisplaySettings,
+} from '@/lib/plots-display-settings';
 import { EmptyState } from '@/components/ui/empty-state';
 import PageHeader from '@/components/page-header';
 import { AIUEO_TABS, SERVER_SORT_MAP } from './constants';
@@ -29,7 +35,7 @@ import { loadSearchHistory, saveSearchHistory } from './utils';
 import type { PlotRegistryProps, SortKey, SortOrder } from './types';
 import { PlotSearchBar } from './PlotSearchBar';
 import { PlotToolbar } from './PlotToolbar';
-import { PlotFilters } from './PlotFilters';
+import { PlotFilters, type OccupancyFilter } from './PlotFilters';
 import { PlotAiueoTabs } from './PlotAiueoTabs';
 import { PlotCardList } from './PlotCardList';
 import { PlotTable } from './PlotTable';
@@ -52,20 +58,22 @@ export default function PlotRegistry({
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
   // フィルタ
+  const [filterOccupancy, setFilterOccupancy] = useState<OccupancyFilter>('in_use');
   const [filterStatus, setFilterStatus] = useState<PhysicalPlotStatus | undefined>(undefined);
   const [filterPaymentStatus, setFilterPaymentStatus] = useState<PaymentStatus | undefined>(undefined);
   const [filterAreaName, setFilterAreaName] = useState('');
-  const [filterGraveKind, setFilterGraveKind] = useState<number | undefined>(undefined);
-  const [filterGraveKubun, setFilterGraveKubun] = useState<number | undefined>(undefined);
   const [filterGraveType, setFilterGraveType] = useState<number | undefined>(undefined);
   const [graveClassifications, setGraveClassifications] = useState<GraveClassificationsResponse>({
     graveKinds: [],
     graveKubuns: [],
     graveTypes: [],
+    areaNames: [],
   });
   const [showBuriedPersons, setShowBuriedPersons] = useState(false);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [isAiueoExpanded, setIsAiueoExpanded] = useState(false);
+  const [isDisplaySettingsOpen, setIsDisplaySettingsOpen] = useState(false);
+  const [displaySettings, setDisplaySettings] = useState<PlotDisplaySettings>(DEFAULT_PLOT_DISPLAY_SETTINGS);
 
   // 検索履歴
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
@@ -80,6 +88,7 @@ export default function PlotRegistry({
   const [columnWidths, setColumnWidths] = useState<ColumnWidths>({});
   useEffect(() => {
     setColumnWidths(loadColumnWidths());
+    setDisplaySettings(loadPlotDisplaySettings());
   }, []);
 
   // ヘッダー境界のドラッグで列幅を変更し、ドラッグ終了時に保存する
@@ -113,6 +122,22 @@ export default function PlotRegistry({
   }, []);
 
   const hasCustomColumnWidths = Object.keys(columnWidths).length > 0;
+
+  const handleFontSizeChange = useCallback((fontSize: PlotDisplaySettings['fontSize']) => {
+    setDisplaySettings((prev) => {
+      const next = { ...prev, fontSize };
+      savePlotDisplaySettings(next);
+      return next;
+    });
+  }, []);
+
+  const handleFontWeightChange = useCallback((fontWeight: PlotDisplaySettings['fontWeight']) => {
+    setDisplaySettings((prev) => {
+      const next = { ...prev, fontWeight };
+      savePlotDisplaySettings(next);
+      return next;
+    });
+  }, []);
 
   // 区画区分 distinct 値（マスタ化されるまでの暫定 select 候補）
   useEffect(() => {
@@ -160,6 +185,9 @@ export default function PlotRegistry({
       }
 
       // フィルタ
+      if (filterOccupancy !== 'in_use') {
+        params.occupancy = filterOccupancy;
+      }
       if (filterStatus) {
         params.status = filterStatus;
       }
@@ -168,12 +196,6 @@ export default function PlotRegistry({
       }
       if (filterAreaName.trim()) {
         params.areaName = filterAreaName.trim();
-      }
-      if (filterGraveKind !== undefined) {
-        params.graveKind = filterGraveKind;
-      }
-      if (filterGraveKubun !== undefined) {
-        params.graveKubun = filterGraveKubun;
       }
       if (filterGraveType !== undefined) {
         params.graveType = filterGraveType;
@@ -205,7 +227,7 @@ export default function PlotRegistry({
         setIsLoading(false);
       }
     }
-  }, [currentPage, itemsPerPage, searchQuery, activeTab, sortKey, sortOrder, filterStatus, filterPaymentStatus, filterAreaName, filterGraveKind, filterGraveKubun, filterGraveType]);
+  }, [currentPage, itemsPerPage, searchQuery, activeTab, sortKey, sortOrder, filterOccupancy, filterStatus, filterPaymentStatus, filterAreaName, filterGraveType]);
 
   useEffect(() => {
     fetchPlots();
@@ -263,21 +285,24 @@ export default function PlotRegistry({
 
   // フィルタ変更ハンドラ
   const hasActiveFilters =
+    filterOccupancy !== 'in_use' ||
     filterStatus !== undefined ||
     filterPaymentStatus !== undefined ||
     filterAreaName.trim() !== '' ||
-    filterGraveKind !== undefined ||
-    filterGraveKubun !== undefined ||
     filterGraveType !== undefined;
 
   const activeFilterCount = [
+    filterOccupancy !== 'in_use' ? filterOccupancy : undefined,
     filterStatus,
     filterPaymentStatus,
     filterAreaName.trim() || undefined,
-    filterGraveKind,
-    filterGraveKubun,
     filterGraveType,
   ].filter((v) => v !== undefined && v !== '').length;
+
+  const handleFilterOccupancyChange = (value: string) => {
+    setFilterOccupancy(value as OccupancyFilter);
+    setCurrentPage(1);
+  };
 
   const handleFilterStatusChange = (value: string) => {
     setFilterStatus(value === 'all' ? undefined : value as PhysicalPlotStatus);
@@ -290,17 +315,7 @@ export default function PlotRegistry({
   };
 
   const handleFilterAreaNameChange = (value: string) => {
-    setFilterAreaName(value);
-    setCurrentPage(1);
-  };
-
-  const handleFilterGraveKindChange = (value: string) => {
-    setFilterGraveKind(value === 'all' ? undefined : Number(value));
-    setCurrentPage(1);
-  };
-
-  const handleFilterGraveKubunChange = (value: string) => {
-    setFilterGraveKubun(value === 'all' ? undefined : Number(value));
+    setFilterAreaName(value === 'all' ? '' : value);
     setCurrentPage(1);
   };
 
@@ -310,11 +325,10 @@ export default function PlotRegistry({
   };
 
   const handleClearFilters = () => {
+    setFilterOccupancy('in_use');
     setFilterStatus(undefined);
     setFilterPaymentStatus(undefined);
     setFilterAreaName('');
-    setFilterGraveKind(undefined);
-    setFilterGraveKubun(undefined);
     setFilterGraveType(undefined);
     setCurrentPage(1);
   };
@@ -424,20 +438,24 @@ export default function PlotRegistry({
           onResetColumnWidths={handleResetColumnWidths}
           showBuriedPersons={showBuriedPersons}
           onToggleBuriedPersons={setShowBuriedPersons}
+          isDisplaySettingsOpen={isDisplaySettingsOpen}
+          onToggleDisplaySettings={() => setIsDisplaySettingsOpen((v) => !v)}
+          fontSize={displaySettings.fontSize}
+          fontWeight={displaySettings.fontWeight}
+          onFontSizeChange={handleFontSizeChange}
+          onFontWeightChange={handleFontWeightChange}
         />
 
         {isFilterExpanded && (
           <PlotFilters
+            filterOccupancy={filterOccupancy}
+            onFilterOccupancyChange={handleFilterOccupancyChange}
             filterStatus={filterStatus}
             onFilterStatusChange={handleFilterStatusChange}
             filterPaymentStatus={filterPaymentStatus}
             onFilterPaymentStatusChange={handleFilterPaymentStatusChange}
             filterAreaName={filterAreaName}
             onFilterAreaNameChange={handleFilterAreaNameChange}
-            filterGraveKind={filterGraveKind}
-            onFilterGraveKindChange={handleFilterGraveKindChange}
-            filterGraveKubun={filterGraveKubun}
-            onFilterGraveKubunChange={handleFilterGraveKubunChange}
             filterGraveType={filterGraveType}
             onFilterGraveTypeChange={handleFilterGraveTypeChange}
             graveClassifications={graveClassifications}
@@ -492,6 +510,8 @@ export default function PlotRegistry({
           startIndex={startIndex}
           emptyState={emptyStateEl}
           searchQuery={searchQuery}
+          fontSize={displaySettings.fontSize}
+          fontWeight={displaySettings.fontWeight}
         />
 
         <PlotPagination

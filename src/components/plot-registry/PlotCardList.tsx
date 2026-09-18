@@ -3,8 +3,8 @@ import { PlotListItem, PaymentStatus } from '@komine/types';
 import { cn, truncateAddressToCity } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_VARIANTS } from './constants';
-import { formatContractDate, getRowBgColor, getSearchHitReason } from './utils';
+import { OCCUPANCY_BADGE_CLASS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_VARIANTS } from './constants';
+import { formatManagementFeeTerm, getOccupancyLabel, getRowBgColor, getSearchHitReason, isVacantPlot } from './utils';
 import { LegacyAwareValue } from '@/components/legacy-aware-value';
 
 interface PlotCardListProps {
@@ -49,6 +49,8 @@ export function PlotCardList({
             const absoluteIndex = startIndex + index;
             const paymentStatus = plot.paymentStatus as PaymentStatus;
             const hitReason = getSearchHitReason(plot, searchQuery);
+            const vacant = isVacantPlot(plot);
+            const occupancyLabel = getOccupancyLabel(plot);
             return (
               <li key={plot.id}>
                 <button
@@ -56,16 +58,25 @@ export function PlotCardList({
                   data-testid="plot-card"
                   onClick={() => onPlotSelect(plot)}
                   className={cn(
-                    'w-full min-h-[52px] rounded-elegant border border-gin bg-white p-4 text-left shadow-sm transition-colors',
-                    'active:bg-matsu-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-matsu',
+                    'w-full min-h-[52px] rounded-elegant border border-gin p-4 text-left shadow-sm transition-colors',
+                    vacant ? 'active:bg-gin/80' : 'active:bg-matsu-50',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-matsu',
+                    getRowBgColor(plot, absoluteIndex),
                     // 選択は藍(ai)アクセントでホバー(緑)と区別 (#190)
-                    selectedPlotId === plot.id && 'border-ai bg-ai-50 ring-1 ring-ai',
-                    getRowBgColor(plot, absoluteIndex)
+                    selectedPlotId === plot.id && 'border-ai bg-ai-50 ring-1 ring-ai'
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     {/* エリア（区）→区画No（番）の順で「2区-12番」と読めるようにする（システム確認 項目①） */}
                     <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={cn(
+                          'inline-block shrink-0 rounded border px-1.5 py-0.5 text-[11px] font-bold leading-tight',
+                          vacant ? OCCUPANCY_BADGE_CLASS.vacant : OCCUPANCY_BADGE_CLASS.inUse
+                        )}
+                      >
+                        {occupancyLabel}
+                      </span>
                       {plot.areaName && (
                         // エリア（区画名）。legacy-* / "1-29" 等の未正規化値は「整備中」ミュート表示 #166
                         <span className="text-xs truncate">
@@ -76,6 +87,9 @@ export function PlotCardList({
                         {/* displayNumber 優先・legacy-* 等は「整備中」ミュート表示 #158/#164 */}
                         <LegacyAwareValue value={plot.displayNumber || plot.plotNumber} kind="plotNumber" />
                       </span>
+                      {plot.agentName && (
+                        <span className="text-xs text-hai truncate">{plot.agentName}</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {paymentStatus && (
@@ -107,8 +121,8 @@ export function PlotCardList({
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-hai whitespace-nowrap tabular-nums">
-                      {formatContractDate(plot.contractDate)}
+                    <div className="text-xs text-hai whitespace-nowrap">
+                      {formatManagementFeeTerm(plot.managementFeeBillingType, plot.managementFeeBillingYears) || ''}
                     </div>
                   </div>
                   {plot.customerAddress && (

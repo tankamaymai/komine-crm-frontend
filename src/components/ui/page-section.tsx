@@ -2,7 +2,7 @@ import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
-const pageSectionVariants = cva('rounded-elegant-lg border border-gin bg-white', {
+const pageSectionVariants = cva('rounded-elegant-lg border border-gin/80 bg-white shadow-elegant-sm', {
   variants: {
     padding: {
       none: '',

@@ -56,3 +56,8 @@ export const PLOT_STATUS_LABELS: Record<PhysicalPlotStatus, string> = {
   [PhysicalPlotStatus.PartiallySold]: '一部販売済',
   [PhysicalPlotStatus.SoldOut]: '完売',
 };
+
+export const OCCUPANCY_BADGE_CLASS = {
+  vacant: 'bg-gin text-hai-dark border-gin',
+  inUse: 'bg-matsu-50 text-matsu-dark border-matsu-200',
+} as const;

@@ -82,14 +82,14 @@ export function BaseDialog({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       {/* オーバーレイ */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm dialog-overlay"
         onClick={closeOnOverlayClick ? onClose : undefined}
         aria-hidden="true"
       />
 
       {/* ダイアログ本体 */}
       <div
-        className={`relative z-50 w-full ${sizeClasses[size]} sm:mx-4 bg-white shadow-xl
+        className={`relative z-50 w-full ${sizeClasses[size]} sm:mx-4 bg-white shadow-elegant-xl dialog-panel
           rounded-t-xl sm:rounded-lg
           max-h-[90vh] sm:max-h-none flex flex-col`}
         role="dialog"
@@ -121,7 +121,7 @@ export function BaseDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="p-2 text-hai hover:text-sumi rounded-md hover:bg-kinari transition-colors flex-shrink-0 ml-2"
+                className="p-2 text-hai hover:text-sumi rounded-md hover:bg-kinari transition-[background-color,color,transform] duration-fast ease-elegant active:scale-[0.97] flex-shrink-0 ml-2"
                 aria-label="閉じる"
               >
                 <X className="w-5 h-5" />

@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 const config: Config = {
   darkMode: 'class',
@@ -11,8 +12,8 @@ const config: Config = {
     extend: {
       // フォントファミリー
       fontFamily: {
-        sans: ['Noto Sans JP', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Hiragino Sans', 'sans-serif'],
-        mincho: ['Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', 'serif'],
+        sans: ['-apple-system', 'BlinkMacSystemFont', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'sans-serif'],
+        mincho: ['Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', 'serif'],
       },
       // 高齢者向けフォントサイズ拡張
       fontSize: {
@@ -177,12 +178,12 @@ const config: Config = {
       },
       // ボックスシャドウ
       boxShadow: {
-        'elegant-sm': '0 1px 2px rgba(26, 26, 26, 0.05)',
-        'elegant': '0 4px 12px rgba(26, 26, 26, 0.08)',
-        'elegant-lg': '0 8px 24px rgba(26, 26, 26, 0.12)',
-        'elegant-xl': '0 16px 48px rgba(26, 26, 26, 0.16)',
-        'matsu': '0 4px 12px rgba(45, 90, 61, 0.25)',
-        'cha': '0 4px 12px rgba(139, 115, 85, 0.25)',
+        'elegant-sm': '0 1px 2px rgba(26, 26, 26, 0.04), 0 1px 1px rgba(26, 26, 26, 0.03)',
+        'elegant': '0 1px 2px rgba(26, 26, 26, 0.04), 0 8px 24px rgba(26, 26, 26, 0.06)',
+        'elegant-lg': '0 4px 8px rgba(26, 26, 26, 0.04), 0 16px 32px rgba(26, 26, 26, 0.08)',
+        'elegant-xl': '0 8px 16px rgba(26, 26, 26, 0.04), 0 24px 48px rgba(26, 26, 26, 0.10)',
+        'matsu': '0 4px 16px rgba(45, 90, 61, 0.22)',
+        'cha': '0 4px 16px rgba(139, 115, 85, 0.22)',
       },
       // ボーダー半径
       borderRadius: {
@@ -192,11 +193,13 @@ const config: Config = {
       },
       // トランジション
       transitionTimingFunction: {
-        'elegant': 'cubic-bezier(0.4, 0, 0.2, 1)',
+        'elegant': 'cubic-bezier(0.23, 1, 0.32, 1)',
+        'in-out-strong': 'cubic-bezier(0.77, 0, 0.175, 1)',
+        'drawer': 'cubic-bezier(0.32, 0.72, 0, 1)',
       },
       transitionDuration: {
-        'fast': '150ms',
-        'normal': '250ms',
+        'fast': '160ms',
+        'normal': '200ms',
         'slow': '400ms',
       },
       // 高コントラスト設定
@@ -216,6 +219,6 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [tailwindcssAnimate],
 };
 export default config;

@@ -1,4 +1,4 @@
-import type { PlotListItem } from '@komine/types';
+import { ContractStatus, type PlotListItem } from '@komine/types';
 import { getPlotDisplayStatus } from '@/lib/api/plots';
 import { formatCurrency, formatYearMonth } from '@/lib/format';
 import { SEARCH_HISTORY_KEY, SEARCH_HISTORY_MAX } from './constants';
@@ -62,10 +62,47 @@ export function formatMoneyString(value: string | null | undefined): string {
   return formatCurrency(value);
 }
 
+const PERPETUAL_TYPE_RE = /^(PERPETUAL|2|永代|legacy-seikyu-2)$/i;
+
+/**
+ * 旧システムの管理料列（「永代」「１０年」）に相当する表示。
+ * 請求区分が永代、または請求年数が 0 なら「永代」。正の年数なら「10年」形式。
+ */
+export function formatManagementFeeTerm(
+  billingType: string | null | undefined,
+  billingYears: string | number | null | undefined,
+): string | null {
+  const type = billingType?.trim() ?? '';
+  if (type && (PERPETUAL_TYPE_RE.test(type) || type.includes('永代'))) {
+    return '永代';
+  }
+
+  if (billingYears === null || billingYears === undefined || billingYears === '') {
+    return null;
+  }
+
+  const years =
+    typeof billingYears === 'number' ? billingYears : Number(String(billingYears).trim());
+  if (!Number.isFinite(years)) return null;
+  if (years === 0) return '永代';
+  if (years > 0) return `${years}年`;
+  return null;
+}
+
 // ===== 行表示ヘルパー（テーブル・モバイルカードで共用） =====
 
-/** 行背景色。滞納/未入金を強調し、それ以外はゼブラ。 */
+export function isVacantPlot(plot: PlotListItem): boolean {
+  return plot.contractStatus === ContractStatus.Vacant;
+}
+
+/** 一覧左端の利用表示。解約済みも台帳上は「利用中」側。 */
+export function getOccupancyLabel(plot: PlotListItem): '空き' | '利用中' {
+  return isVacantPlot(plot) ? '空き' : '利用中';
+}
+
+/** 行背景色。空きは灰色、利用中は滞納/未入金を強調し、それ以外はゼブラ。 */
 export function getRowBgColor(plot: PlotListItem, absoluteIndex: number) {
+  if (isVacantPlot(plot)) return 'bg-hai-50';
   const status = getPlotDisplayStatus(plot);
   if (status === 'overdue') return 'bg-beni-50';
   if (status === 'attention') return 'bg-kohaku-50';

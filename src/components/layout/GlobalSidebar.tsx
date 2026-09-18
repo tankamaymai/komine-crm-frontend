@@ -74,14 +74,14 @@ export default function GlobalSidebar({
     <>
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-40 md:hidden dialog-overlay"
           onClick={onMobileClose}
           aria-hidden="true"
         />
       )}
       <div
         data-testid="global-sidebar"
-        className={`bg-kinari border-r border-gin fixed top-0 left-0 h-screen overflow-y-auto overflow-x-hidden flex flex-col transition-all duration-300 ease-in-out
+        className={`bg-kinari border-r border-gin/80 fixed top-0 left-0 h-screen overflow-y-auto overflow-x-hidden flex flex-col transition-[width,transform] duration-normal ease-elegant
           ${collapsed ? 'w-16' : 'w-56'}
           ${mobileOpen ? 'translate-x-0 z-50' : '-translate-x-full z-50'}
           md:translate-x-0 md:z-10
@@ -114,7 +114,7 @@ export default function GlobalSidebar({
                 onToggleCollapse();
               }
             }}
-            className={`p-2 rounded-md text-hai hover:text-sumi hover:bg-white cursor-pointer transition-colors ${focusRing}`}
+            className={`p-2 rounded-md text-hai hover:text-sumi hover:bg-white cursor-pointer transition-[background-color,color,transform] duration-fast ease-elegant active:scale-[0.97] ${focusRing}`}
             aria-label={collapsed ? 'メニューを開く' : 'メニューを閉じる'}
           >
             {collapsed ? (
@@ -160,7 +160,7 @@ export default function GlobalSidebar({
                         key={item.path}
                         href={item.path}
                         onClick={onMobileClose}
-                        className={`w-full flex justify-center p-2.5 rounded-md cursor-pointer transition-colors ${focusRing} ${active
+                        className={`w-full flex justify-center p-2.5 rounded-md cursor-pointer transition-[background-color,color,transform] duration-fast ease-elegant active:scale-[0.97] ${focusRing} ${active
                           ? 'bg-matsu-50 text-matsu border border-matsu-200'
                           : 'text-sumi hover:bg-white hover:text-matsu'
                           }`}
@@ -174,7 +174,7 @@ export default function GlobalSidebar({
                         key={item.path}
                         href={item.path}
                         onClick={onMobileClose}
-                        className={`w-full flex items-center gap-3 text-left px-3 py-2.5 text-senior-sm rounded-lg cursor-pointer transition-all duration-200 ${focusRing} ${active
+                        className={`w-full flex items-center gap-3 text-left px-3 py-2.5 text-senior-sm rounded-lg cursor-pointer transition-[background-color,color,box-shadow,border-color] duration-fast ease-elegant active:scale-[0.98] ${focusRing} ${active
                           ? 'bg-matsu-50 text-matsu border-l-[3px] border-matsu shadow-sm font-medium'
                           : 'text-sumi hover:bg-white hover:text-matsu hover:shadow-sm border-l-[3px] border-transparent'
                           }`}

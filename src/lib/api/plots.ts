@@ -63,6 +63,7 @@ export interface PlotSearchParams {
   graveKind?: number;
   graveKubun?: number;
   graveType?: number;
+  occupancy?: 'in_use' | 'vacant' | 'all';
 }
 
 /**
@@ -94,6 +95,7 @@ const mockPlots: PlotListItem[] = [
     contractDate: '2020-04-01',
     price: 500000,
     paymentStatus: PaymentStatus.Paid,
+    contractStatus: ContractStatus.Active,
     customerName: '田中太郎',
     customerNameKana: 'タナカタロウ',
     customerPhoneNumber: '09012345678',
@@ -112,6 +114,8 @@ const mockPlots: PlotListItem[] = [
     permitNumber: '許可-2020-001',
     nextBillingDate: '2025-04-01',
     managementFee: '5000',
+    managementFeeBillingType: 'PERPETUAL',
+    managementFeeBillingYears: '0',
     uncollectedAmount: 0,
     billingSummary: {
       hasBilling: true,
@@ -134,6 +138,7 @@ const mockPlots: PlotListItem[] = [
     contractDate: '2022-08-15',
     price: 300000,
     paymentStatus: PaymentStatus.Unpaid,
+    contractStatus: ContractStatus.Active,
     customerName: '鈴木花子',
     customerNameKana: 'スズキハナコ',
     customerPhoneNumber: '08098765432',
@@ -152,6 +157,8 @@ const mockPlots: PlotListItem[] = [
     permitNumber: null,
     nextBillingDate: '2025-08-15',
     managementFee: '3000',
+    managementFeeBillingType: 'PRESENT',
+    managementFeeBillingYears: '10',
     uncollectedAmount: 0,
     billingSummary: {
       hasBilling: true,
@@ -649,6 +656,7 @@ export async function getPlots(
     graveKind: params.graveKind,
     graveKubun: params.graveKubun,
     graveType: params.graveType,
+    occupancy: params.occupancy,
   });
 
   if (!response.success) {
@@ -788,7 +796,7 @@ export async function getGraveClassifications(): Promise<
   if (shouldUseMockData()) {
     return {
       success: true,
-      data: { graveKinds: [], graveKubuns: [], graveTypes: [] },
+      data: { graveKinds: [], graveKubuns: [], graveTypes: [], areaNames: [] },
     };
   }
   return apiGet<GraveClassificationsResponse>('/plots/grave-classifications');

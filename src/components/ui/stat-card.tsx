@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const statCardVariants = cva(
-  'relative rounded-elegant-lg border bg-white p-4 md:p-5 transition-all duration-250 ease-elegant',
+  'relative rounded-elegant-lg border bg-white p-4 md:p-5 transition-[box-shadow,transform,background-color] duration-fast ease-elegant',
   {
     variants: {
       theme: {
@@ -15,7 +15,7 @@ const statCardVariants = cva(
         sumi: 'border-gin',
       },
       interactive: {
-        true: 'cursor-pointer hover:shadow-elegant hover:-translate-y-0.5',
+        true: 'cursor-pointer hover:shadow-elegant active:scale-[0.98]',
         false: 'shadow-elegant-sm',
       },
     },
