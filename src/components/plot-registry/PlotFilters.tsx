@@ -1,20 +1,20 @@
 import { PaymentStatus, PhysicalPlotStatus } from '@komine/types';
 import type { GraveClassificationsResponse } from '@komine/types';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { isLegacyAreaName } from '@/lib/legacy-plot-display';
 import { PAYMENT_STATUS_LABELS, PLOT_STATUS_LABELS } from './constants';
 
+export type OccupancyFilter = 'in_use' | 'vacant' | 'all';
+
 interface PlotFiltersProps {
+  filterOccupancy: OccupancyFilter;
+  onFilterOccupancyChange: (value: string) => void;
   filterStatus: PhysicalPlotStatus | undefined;
   onFilterStatusChange: (value: string) => void;
   filterPaymentStatus: PaymentStatus | undefined;
   onFilterPaymentStatusChange: (value: string) => void;
   filterAreaName: string;
   onFilterAreaNameChange: (value: string) => void;
-  filterGraveKind: number | undefined;
-  onFilterGraveKindChange: (value: string) => void;
-  filterGraveKubun: number | undefined;
-  onFilterGraveKubunChange: (value: string) => void;
   filterGraveType: number | undefined;
   onFilterGraveTypeChange: (value: string) => void;
   graveClassifications: GraveClassificationsResponse;
@@ -24,24 +24,41 @@ interface PlotFiltersProps {
 
 /** 折りたたみフィルタ行。 */
 export function PlotFilters({
+  filterOccupancy,
+  onFilterOccupancyChange,
   filterStatus,
   onFilterStatusChange,
   filterPaymentStatus,
   onFilterPaymentStatusChange,
   filterAreaName,
   onFilterAreaNameChange,
-  filterGraveKind,
-  onFilterGraveKindChange,
-  filterGraveKubun,
-  onFilterGraveKubunChange,
   filterGraveType,
   onFilterGraveTypeChange,
   graveClassifications,
   showBuriedPersons,
   onToggleBuriedPersons,
 }: PlotFiltersProps) {
+  const areaOptions = (graveClassifications.areaNames ?? []).filter((name) => !isLegacyAreaName(name));
+  const selectableAreas =
+    filterAreaName && !areaOptions.includes(filterAreaName)
+      ? [filterAreaName, ...areaOptions]
+      : areaOptions;
+
   return (
     <div className="mb-3 p-3 bg-white border border-gin rounded-elegant grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3 sm:flex-wrap">
+      <div className="flex items-center gap-1 sm:gap-2">
+        <span className="text-xs sm:text-sm text-hai whitespace-nowrap">利用:</span>
+        <Select value={filterOccupancy} onValueChange={onFilterOccupancyChange}>
+          <SelectTrigger className="w-full sm:w-32 h-9 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="in_use">利用中</SelectItem>
+            <SelectItem value="vacant">空き区画</SelectItem>
+            <SelectItem value="all">全て</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <div className="flex items-center gap-1 sm:gap-2">
         <span className="text-xs sm:text-sm text-hai whitespace-nowrap">区画:</span>
         <Select value={filterStatus || 'all'} onValueChange={onFilterStatusChange}>
@@ -72,44 +89,14 @@ export function PlotFilters({
       </div>
       <div className="flex items-center gap-1 sm:gap-2">
         <span className="text-xs sm:text-sm text-hai whitespace-nowrap">エリア:</span>
-        <Input
-          type="text"
-          placeholder="エリア名"
-          value={filterAreaName}
-          onChange={(e) => onFilterAreaNameChange(e.target.value)}
-          className="w-full sm:w-28 h-9 text-sm"
-        />
-      </div>
-      <div className="flex items-center gap-1 sm:gap-2">
-        <span className="text-xs sm:text-sm text-hai whitespace-nowrap">形状:</span>
-        <Select
-          value={filterGraveKind === undefined ? 'all' : String(filterGraveKind)}
-          onValueChange={onFilterGraveKindChange}
-        >
-          <SelectTrigger className="w-full sm:w-20 h-9 text-sm">
+        <Select value={filterAreaName || 'all'} onValueChange={onFilterAreaNameChange}>
+          <SelectTrigger className="w-full sm:w-40 h-9 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全て</SelectItem>
-            {graveClassifications.graveKinds.map((v) => (
-              <SelectItem key={v} value={String(v)}>{v}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex items-center gap-1 sm:gap-2">
-        <span className="text-xs sm:text-sm text-hai whitespace-nowrap">基地:</span>
-        <Select
-          value={filterGraveKubun === undefined ? 'all' : String(filterGraveKubun)}
-          onValueChange={onFilterGraveKubunChange}
-        >
-          <SelectTrigger className="w-full sm:w-20 h-9 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全て</SelectItem>
-            {graveClassifications.graveKubuns.map((v) => (
-              <SelectItem key={v} value={String(v)}>{v}</SelectItem>
+            {selectableAreas.map((name) => (
+              <SelectItem key={name} value={name}>{name}</SelectItem>
             ))}
           </SelectContent>
         </Select>

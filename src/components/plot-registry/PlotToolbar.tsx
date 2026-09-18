@@ -1,5 +1,13 @@
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronUp, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, SlidersHorizontal, Type, X } from 'lucide-react';
+import {
+  PLOT_FONT_SIZE_LABELS,
+  PLOT_FONT_SIZES,
+  PLOT_FONT_WEIGHT_LABELS,
+  PLOT_FONT_WEIGHTS,
+  type PlotFontSize,
+  type PlotFontWeight,
+} from '@/lib/plots-display-settings';
 import { AIUEO_TABS } from './constants';
 
 interface PlotToolbarProps {
@@ -15,6 +23,12 @@ interface PlotToolbarProps {
   onResetColumnWidths: () => void;
   showBuriedPersons: boolean;
   onToggleBuriedPersons: (checked: boolean) => void;
+  isDisplaySettingsOpen: boolean;
+  onToggleDisplaySettings: () => void;
+  fontSize: PlotFontSize;
+  fontWeight: PlotFontWeight;
+  onFontSizeChange: (size: PlotFontSize) => void;
+  onFontWeightChange: (weight: PlotFontWeight) => void;
 }
 
 /** フィルタ・あいう順の切替ボタン + アクティブ条件バッジ + 列幅リセット + 埋葬者表示。 */
@@ -31,6 +45,12 @@ export function PlotToolbar({
   onResetColumnWidths,
   showBuriedPersons,
   onToggleBuriedPersons,
+  isDisplaySettingsOpen,
+  onToggleDisplaySettings,
+  fontSize,
+  fontWeight,
+  onFontSizeChange,
+  onFontWeightChange,
 }: PlotToolbarProps) {
   return (
     <div className="mb-3 flex items-center gap-2 flex-wrap">
@@ -112,6 +132,65 @@ export function PlotToolbar({
         />
         埋葬者を表示
       </label>
+
+      <button
+        type="button"
+        onClick={onToggleDisplaySettings}
+        aria-expanded={isDisplaySettingsOpen}
+        className={cn(
+          'hidden md:inline-flex items-center gap-1.5 px-3 h-9 rounded-elegant border text-xs sm:text-sm transition-colors',
+          isDisplaySettingsOpen
+            ? 'bg-matsu-50 text-matsu border-matsu-200'
+            : 'bg-white text-hai border-gin hover:bg-kinari'
+        )}
+      >
+        <Type className="w-3.5 h-3.5" />
+        文字の設定
+        {isDisplaySettingsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+      </button>
+
+      {isDisplaySettingsOpen && (
+        <div className="w-full basis-full p-3 bg-white border border-gin rounded-elegant flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-hai whitespace-nowrap">大きさ</span>
+            <div className="inline-flex rounded-elegant border border-gin overflow-hidden">
+              {PLOT_FONT_SIZES.map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  aria-pressed={fontSize === size}
+                  onClick={() => onFontSizeChange(size)}
+                  className={cn(
+                    'px-3 h-8 text-sm transition-colors',
+                    fontSize === size ? 'bg-matsu text-white' : 'bg-white text-sumi hover:bg-kinari'
+                  )}
+                >
+                  {PLOT_FONT_SIZE_LABELS[size]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-hai whitespace-nowrap">太さ</span>
+            <div className="inline-flex rounded-elegant border border-gin overflow-hidden">
+              {PLOT_FONT_WEIGHTS.map((weight) => (
+                <button
+                  key={weight}
+                  type="button"
+                  aria-pressed={fontWeight === weight}
+                  onClick={() => onFontWeightChange(weight)}
+                  className={cn(
+                    'px-3 h-8 text-sm transition-colors',
+                    fontWeight === weight ? 'bg-matsu text-white' : 'bg-white text-sumi hover:bg-kinari'
+                  )}
+                >
+                  {PLOT_FONT_WEIGHT_LABELS[weight]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -26,8 +26,8 @@ export type ResizableColumnKey =
  * null は「幅指定なし（残り幅を吸収して伸縮）」を意味する（備考列）。
  */
 export const COLUMN_DEFAULT_WIDTHS: Record<ResizableColumnKey, number | null> = {
-  plotNumber: 68,
-  areaName: 52,
+  plotNumber: 80,
+  areaName: 72,
   customerName: 110,
   address: 90,
   phone: 100,

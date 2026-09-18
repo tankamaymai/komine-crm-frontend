@@ -44,6 +44,8 @@ function renderTable(plots: PlotListItem[], showBuriedPersons: boolean) {
       onPlotSelect={() => {}}
       startIndex={0}
       emptyState={<div>empty</div>}
+      fontSize="md"
+      fontWeight="medium"
     />
   );
 }
@@ -157,6 +159,8 @@ describe('台帳一覧の埋葬者表示 (#299)', () => {
           onPlotSelect={onPlotSelect}
           startIndex={0}
           emptyState={<div>empty</div>}
+          fontSize="md"
+          fontWeight="medium"
         />
       );
 
