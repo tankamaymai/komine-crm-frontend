@@ -146,7 +146,7 @@ export function PlotTable({
               <th
                 className={cn(
                   headClass,
-                  'cursor-pointer transition-all duration-200 hover:bg-matsu-light',
+                  'cursor-pointer transition-colors duration-fast ease-elegant hover:bg-matsu-light',
                   headBorder,
                   sortKey === 'plotNumber' && 'bg-matsu-dark'
                 )}
@@ -165,7 +165,7 @@ export function PlotTable({
               <th
                 className={cn(
                   headClass,
-                  'cursor-pointer transition-all duration-200 hover:bg-matsu-light',
+                  'cursor-pointer transition-colors duration-fast ease-elegant hover:bg-matsu-light',
                   headBorder,
                   sortKey === 'customerName' && 'bg-matsu-dark'
                 )}
@@ -197,7 +197,7 @@ export function PlotTable({
               )}
               <th
                 className={cn(
-                  'px-2 py-3 text-center font-bold text-white whitespace-nowrap cursor-pointer transition-all duration-200',
+                  'px-2 py-3 text-center font-bold text-white whitespace-nowrap cursor-pointer transition-colors duration-fast ease-elegant',
                   'hover:bg-matsu-light',
                   headBorder,
                   sortKey === 'paymentStatus' && 'bg-matsu-dark'
@@ -211,7 +211,7 @@ export function PlotTable({
               </th>
               <th
                 className={cn(
-                  'px-2 py-3 text-center font-bold text-white whitespace-nowrap cursor-pointer transition-all duration-200 hidden sm:table-cell',
+                  'px-2 py-3 text-center font-bold text-white whitespace-nowrap cursor-pointer transition-colors duration-fast ease-elegant hidden sm:table-cell',
                   'hover:bg-matsu-light',
                   headBorder,
                   sortKey === 'managementFee' && 'bg-matsu-dark'
@@ -277,7 +277,7 @@ export function PlotTable({
                   <tr
                     key={`${plot.id}-${buriedIndex}`}
                     className={cn(
-                      'group cursor-pointer transition-all duration-200',
+                      'group cursor-pointer transition-colors duration-fast ease-elegant',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-matsu',
                       vacant ? 'hover:bg-gin/80 focus-visible:bg-gin/80' : 'hover:bg-matsu-50 focus-visible:bg-matsu-50',
                       getRowBgColor(plot, plotAbsoluteIndex),

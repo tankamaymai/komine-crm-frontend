@@ -27,7 +27,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           onMobileClose={() => setMobileSidebarOpen(false)}
         />
 
-        <div className={`flex-1 min-w-0 flex flex-col ml-0 ${sidebarWidth} transition-all duration-300`}>
+        <div className={`flex-1 min-w-0 flex flex-col ml-0 ${sidebarWidth} transition-[margin] duration-normal ease-elegant`}>
           <MockDataBanner />
           {children}
         </div>
