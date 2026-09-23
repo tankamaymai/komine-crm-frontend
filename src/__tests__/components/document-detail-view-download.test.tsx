@@ -52,6 +52,7 @@ function makeDoc(overrides: Partial<DocumentDetail>): DocumentDetail {
 function renderWithDoc(doc: DocumentDetail) {
   const onDownload = jest.fn();
   const onDownloadFile = jest.fn();
+  const onPrintText = jest.fn();
   useDocumentDetailMock.mockReturnValue({
     data: doc,
     isLoading: false,
@@ -66,9 +67,10 @@ function renderWithDoc(doc: DocumentDetail) {
       onDelete={jest.fn()}
       onDownload={onDownload}
       onDownloadFile={onDownloadFile}
+      onPrintText={onPrintText}
     />
   );
-  return { onDownload, onDownloadFile };
+  return { onDownload, onDownloadFile, onPrintText };
 }
 
 describe('DocumentDetailView ダウンロードボタン', () => {
@@ -137,5 +139,18 @@ describe('DocumentDetailView ダウンロードボタン', () => {
     );
     expect(screen.getByText('PDF再生成')).toBeInTheDocument();
     expect(screen.queryByText('ファイルをダウンロード')).not.toBeInTheDocument();
+  });
+
+  it('保存済みの許可証は、台紙に文字だけ印刷できる', () => {
+    const { onPrintText } = renderWithDoc(
+      makeDoc({
+        type: 'permit',
+        templateType: 'permit',
+        templateData: { applicantName: '山田太郎', issueYear: '2026' },
+      })
+    );
+    const printBtn = screen.getByText('台紙に文字だけ印刷');
+    fireEvent.click(printBtn);
+    expect(onPrintText).toHaveBeenCalledWith('doc-x');
   });
 });

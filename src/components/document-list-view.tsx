@@ -33,6 +33,7 @@ import {
   FileDown,
   Eye,
   ArrowLeft,
+  Printer,
 } from 'lucide-react';
 
 interface DocumentListViewProps {
@@ -46,6 +47,8 @@ interface DocumentListViewProps {
   onDownload: (id: string) => void;
   /** アップロード済みファイル実体をダウンロード */
   onDownloadFile: (id: string) => void;
+  /** 保存済み許可証を、台紙の上に文字だけ載せて印刷する */
+  onPrintText?: (id: string) => void;
   /** テンプレートギャラリーに戻る */
   onBack?: () => void;
 }
@@ -56,6 +59,7 @@ export function DocumentListView({
   onViewDetail,
   onDownload,
   onDownloadFile,
+  onPrintText,
   onBack,
 }: DocumentListViewProps) {
   // 顧客IDが指定されている場合は初期フィルターとして設定
@@ -273,6 +277,28 @@ export function DocumentListView({
                       )}
                       {/* 一覧応答は template_data を含まないため templateType のみで判定。
                           template_data 未保存の場合の最終ガードは詳細画面で行う（#251）。 */}
+                      {onPrintText &&
+                        (doc.templateType === 'permit' ||
+                          doc.type === 'permit' ||
+                          doc.templateType === 'envelope-letter' ||
+                          doc.type === 'envelope_letter') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title={
+                              doc.templateType === 'envelope-letter' ||
+                              doc.type === 'envelope_letter'
+                                ? '封筒に文字だけ印刷'
+                                : '台紙に文字だけ印刷'
+                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPrintText(doc.id);
+                            }}
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                        )}
                       {canRegenerateDocument(doc.templateType) && (
                         <Button
                           variant="ghost"

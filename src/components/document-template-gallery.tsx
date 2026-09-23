@@ -108,7 +108,7 @@ const TEMPLATES: TemplateOption[] = [
     id: 'envelope-letter',
     label: '封筒書',
     description:
-      '送付用封筒の表面・裏面（2枚）のテンプレートに宛先等を印字して作成します。',
+      '送付用封筒の表に、郵便番号・住所・名前を縦書きで印字します。裏面はありません。',
     icon: <Files className="h-7 w-7" />,
     theme: 'cha',
     hasTemplate: true,

@@ -225,6 +225,8 @@ export interface GeneratePdfRequest {
   name?: string;
   contractPlotId?: string;
   customerId?: string;
+  /** 許可証を厚紙へ重ね刷りするとき true。台紙の絵は入れない */
+  textOnly?: boolean;
 }
 
 // お支払い方法のご案内テンプレートデータ
@@ -1029,13 +1031,14 @@ export async function generatePdf(
  * 保存済みテンプレートデータからPDFを再生成（ダウンロード用）
  */
 export async function regenerateDocumentPdf(
-  id: string
+  id: string,
+  options?: { textOnly?: boolean }
 ): Promise<ApiResponse<GeneratePdfResponse>> {
   if (shouldUseMockData()) {
     return mockRegenerateDocumentPdf(id);
   }
 
-  return apiPost<GeneratePdfResponse>(`/documents/${id}/regenerate-pdf`);
+  return apiPost<GeneratePdfResponse>(`/documents/${id}/regenerate-pdf`, options);
 }
 
 // =============================================================================
@@ -1150,13 +1153,64 @@ async function mockGenerateBulkInvoice(
 /**
  * Base64 PDFをダウンロード
  */
-export function downloadPdfFromBase64(base64: string, fileName: string): void {
+function pdfBlobFromBase64(base64: string): Blob {
   const byteCharacters = atob(base64);
   const byteNumbers = new Array(byteCharacters.length);
   for (let i = 0; i < byteCharacters.length; i++) {
     byteNumbers[i] = byteCharacters.charCodeAt(i);
   }
   const byteArray = new Uint8Array(byteNumbers);
-  const blob = new Blob([byteArray], { type: 'application/pdf' });
-  downloadFileBlob(blob, fileName);
+  return new Blob([byteArray], { type: 'application/pdf' });
+}
+
+export function downloadPdfFromBase64(base64: string, fileName: string): void {
+  downloadFileBlob(pdfBlobFromBase64(base64), fileName);
+}
+
+/**
+ * すでに開いている窓に、文字だけのPDFを表示して印刷画面を出す。
+ * 窓はボタンを押した直後に開いておく（あとから開くとブラウザに止められる）。
+ */
+export function printPdfFromBase64(base64: string, targetWindow: Window): void {
+  const url = URL.createObjectURL(pdfBlobFromBase64(base64));
+  let printed = false;
+  const triggerPrint = () => {
+    if (printed || targetWindow.closed) return;
+    printed = true;
+    targetWindow.focus();
+    targetWindow.print();
+  };
+  targetWindow.addEventListener('load', triggerPrint, { once: true });
+  targetWindow.location.href = url;
+  window.setTimeout(triggerPrint, 1000);
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/** 保存済みの許可証を、台紙の上に文字だけ載せる印刷画面で開く */
+export async function printSavedPermitText(
+  id: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    return {
+      ok: false,
+      message: '印刷用の新しい窓を開けませんでした。ポップアップを止めていないか確認してください。',
+    };
+  }
+  printWindow.document.title = '台紙に文字だけ印刷';
+  printWindow.document.body.innerHTML =
+    '<p style="font-family:sans-serif">文字を準備しています…</p>';
+
+  const response = await regenerateDocumentPdf(id, { textOnly: true });
+  if (!response.success || !response.data.pdf) {
+    printWindow.close();
+    return {
+      ok: false,
+      message: response.success
+        ? '印刷用の文字を用意できませんでした'
+        : response.error.message,
+    };
+  }
+  printPdfFromBase64(response.data.pdf, printWindow);
+  return { ok: true };
 }

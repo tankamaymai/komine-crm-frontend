@@ -82,19 +82,19 @@ function PermitFieldOverlay({
 
   if (field.direction === 'vertical') {
     return (
-      <div style={commonStyle} className="flex flex-col items-center justify-start gap-0">
+      <div style={commonStyle}>
         <span
           className="pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] font-sans text-matsu-dark bg-white px-1 rounded border border-gin whitespace-nowrap"
           aria-hidden
         >
           {field.label}
         </span>
-        <input
-          type="text"
+        <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
-          className={cn(inputClassName, 'w-full h-full text-center font-mincho')}
+          rows={1}
+          className={cn(inputClassName, 'h-full w-full resize-none overflow-hidden font-mincho')}
           style={{
             fontSize: `${fontPx}px`,
             writingMode: 'vertical-rl',
