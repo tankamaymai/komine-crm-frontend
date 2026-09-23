@@ -21,7 +21,7 @@ jobs:
 
       - name: Checkout and build shared types
         run: |
-          git clone --depth 1 https://github.com/tankamaymai/komine-types.git ../packages/types
+          git clone --depth 1 https://github.com/zaitsu82/komine-types.git ../packages/types
           cd ../packages/types && npm ci && npm run build
 
       - name: Setup Node.js
@@ -54,7 +54,7 @@ jobs:
 
       - name: Checkout and build shared types
         run: |
-          git clone --depth 1 https://github.com/tankamaymai/komine-types.git ../packages/types
+          git clone --depth 1 https://github.com/zaitsu82/komine-types.git ../packages/types
           cd ../packages/types && npm ci && npm run build
 
       - name: Setup Node.js
@@ -80,7 +80,7 @@ jobs:
 
       - name: Checkout and build shared types
         run: |
-          git clone --depth 1 https://github.com/tankamaymai/komine-types.git ../packages/types
+          git clone --depth 1 https://github.com/zaitsu82/komine-types.git ../packages/types
           cd ../packages/types && npm ci && npm run build
 
       - name: Setup Node.js
@@ -115,7 +115,7 @@ jobs:
 
       - name: Checkout and build shared types
         run: |
-          git clone --depth 1 https://github.com/tankamaymai/komine-types.git ../packages/types
+          git clone --depth 1 https://github.com/zaitsu82/komine-types.git ../packages/types
           cd ../packages/types && npm ci && npm run build
 
       - name: Setup Node.js
