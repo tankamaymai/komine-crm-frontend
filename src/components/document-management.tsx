@@ -9,6 +9,7 @@ import { DocumentListView } from './document-list-view';
 import { DocumentDetailView } from './document-detail-view';
 import { DocumentForm } from './document-form';
 import { useDocumentMutations, DocumentDetail } from '@/hooks/useDocuments';
+import { printSavedPermitText } from '@/lib/api/documents';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, FileText } from 'lucide-react';
@@ -92,7 +93,7 @@ export function DocumentManagement({
 
   const handleViewDetail = useCallback((id: string) => {
     setSelectedDocumentId(id);
-    setViewMode('detail');
+    setViewMode('edit');
   }, []);
 
   const handleEdit = useCallback((id: string) => {
@@ -102,7 +103,8 @@ export function DocumentManagement({
 
   const handleSaved = useCallback((doc: DocumentDetail) => {
     setSelectedDocumentId(doc.id);
-    setViewMode('detail');
+    // 保存後は、日時や中身の生データを並べた詳細ではなく、入力し直せる画面に残す
+    setViewMode('edit');
   }, []);
 
   const handleDeleteRequest = useCallback((id: string) => {
@@ -135,6 +137,15 @@ export function DocumentManagement({
   );
 
   // アップロード済みファイル実体のダウンロード
+  const handlePrintText = useCallback(async (id: string) => {
+    const result = await printSavedPermitText(id);
+    if (result.ok) {
+      toast.success('印刷の画面を開きました。拡大縮小は「そのまま」にして、台紙をセットしてください。');
+    } else {
+      toast.error(result.message);
+    }
+  }, []);
+
   const handleDownloadFile = useCallback(
     async (id: string) => {
       const ok = await downloadFile(id);
@@ -220,6 +231,7 @@ export function DocumentManagement({
             onViewDetail={handleViewDetail}
             onDownload={handleDownload}
             onDownloadFile={handleDownloadFile}
+            onPrintText={handlePrintText}
             onBack={customerId ? undefined : handleBackToTemplates}
           />
         )}
@@ -233,6 +245,7 @@ export function DocumentManagement({
               onDelete={handleDeleteRequest}
               onDownload={handleDownload}
               onDownloadFile={handleDownloadFile}
+              onPrintText={handlePrintText}
             />
           </div>
         )}
@@ -255,6 +268,7 @@ export function DocumentManagement({
               documentId={selectedDocumentId}
               onBack={handleBackToList}
               onSaved={handleSaved}
+              onDelete={() => handleDeleteRequest(selectedDocumentId)}
             />
           </div>
         )}

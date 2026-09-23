@@ -18,6 +18,7 @@ import {
   Edit,
   Trash2,
   Download,
+  Printer,
   RefreshCw,
   FileText,
   Calendar,
@@ -35,6 +36,8 @@ interface DocumentDetailViewProps {
   onDownload: (id: string) => void;
   /** アップロード済みファイル実体をダウンロード */
   onDownloadFile: (id: string) => void;
+  /** 保存済み許可証を、台紙の上に文字だけ載せて印刷する */
+  onPrintText?: (id: string) => void;
 }
 
 export function DocumentDetailView({
@@ -44,6 +47,7 @@ export function DocumentDetailView({
   onDelete,
   onDownload,
   onDownloadFile,
+  onPrintText,
 }: DocumentDetailViewProps) {
   const { data, isLoading, error, refresh } = useDocumentDetail(documentId);
 
@@ -123,6 +127,27 @@ export function DocumentDetailView({
             <Edit className="mr-2 h-4 w-4" />
             編集
           </Button>
+          {onPrintText &&
+            (data.templateType === 'permit' ||
+              data.type === 'permit' ||
+              data.templateType === 'envelope-letter' ||
+              data.type === 'envelope_letter') &&
+            canRegenerateDocument(
+              data.templateType,
+              !!data.templateData && Object.keys(data.templateData).length > 0
+            ) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-matsu/40 text-matsu-dark hover:bg-matsu/5"
+                onClick={() => onPrintText(documentId)}
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                {data.templateType === 'envelope-letter' || data.type === 'envelope_letter'
+                  ? '封筒に文字だけ印刷'
+                  : '台紙に文字だけ印刷'}
+              </Button>
+            )}
           {data.fileName && (
             <Button
               variant="outline"

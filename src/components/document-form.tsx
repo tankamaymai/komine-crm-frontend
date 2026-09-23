@@ -20,7 +20,8 @@ import {
   DOCUMENT_TYPE_LABELS,
   DOCUMENT_STATUS_LABELS,
 } from '@/hooks/useDocuments';
-import { downloadPdfFromBase64 } from '@/lib/api/documents';
+import { getContractorPlotNumber } from '@/lib/api/plots';
+import { downloadPdfFromBase64, printPdfFromBase64 } from '@/lib/api/documents';
 import {
   ArrowLeft,
   Save,
@@ -29,6 +30,7 @@ import {
   RefreshCw,
   X,
   Download,
+  Printer,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TemplateId } from './document-template-gallery';
@@ -93,6 +95,8 @@ interface DocumentFormProps {
   plotDetail?: PlotDetailResponse;
   onBack: () => void;
   onSaved: (doc: DocumentDetail) => void;
+  /** 保存済み書類を消す。編集中だけ出す */
+  onDelete?: () => void;
 }
 
 /**
@@ -256,6 +260,7 @@ export function DocumentForm({
   plotDetail,
   onBack,
   onSaved,
+  onDelete,
 }: DocumentFormProps) {
   const isEditMode = !!documentId;
   const { data: existingData, isLoading: isLoadingDetail } = useDocumentDetail(
@@ -377,6 +382,24 @@ export function DocumentForm({
       setTemplateData(autoFill.templateData);
       setInvoiceItems(autoFill.invoiceItems);
     }
+
+    // 許可証は、この人が契約中の区画を1枚にまとめる
+    const contractorId =
+      templateId === 'permit' && plotDetail
+        ? getPrimaryCustomer(plotDetail)?.id
+        : undefined;
+    if (!contractorId) return;
+
+    let cancelled = false;
+    void getContractorPlotNumber(contractorId).then((response) => {
+      if (cancelled || !response.success) return;
+      const plotNumber = response.data.plotNumber.trim();
+      if (!plotNumber) return;
+      setTemplateData((prev) => ({ ...prev, plotNumber }));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [templateId, isEditMode, plotDetail]);
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
@@ -498,7 +521,11 @@ export function DocumentForm({
         const uploaded = await uploadFile(result.id, selectedFile);
         if (!uploaded) toast.error('ファイルのアップロードに失敗しました');
       }
-      toast.success(isEditMode ? '書類を更新しました' : '書類を作成しました');
+      toast.success(
+        isEditMode
+          ? '書類の変更を保存しました。'
+          : '書類を保存しました。この画面で直し直せます。'
+      );
       onSaved(result);
     } else if (mutationError) {
       toast.error(mutationError);
@@ -534,6 +561,43 @@ export function DocumentForm({
           `PDF生成完了 (${(result.fileSize / 1024).toFixed(1)} KB)`
         );
       }
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handlePrintTextOnly = async (kind: 'permit' | 'envelope-letter') => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('印刷用の新しい窓を開けませんでした。ポップアップを止めていないか確認してください。');
+      return;
+    }
+    const paperName = kind === 'permit' ? '台紙' : '封筒';
+    printWindow.document.title = `${paperName}に文字だけ印刷`;
+    printWindow.document.body.innerHTML =
+      '<p style="font-family:sans-serif">文字を準備しています…</p>';
+
+    setIsGeneratingPdf(true);
+    try {
+      const tPayload = buildTemplateDataPayload();
+      const result = await generate({
+        templateType: kind,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        templateData: tPayload as any,
+        documentId: documentId,
+        name: formData.name || undefined,
+        textOnly: true,
+      });
+
+      if (!result) {
+        printWindow.close();
+        return;
+      }
+
+      printPdfFromBase64(result.pdf, printWindow);
+      toast.success(
+        `印刷の画面を開きました。拡大縮小は「そのまま」にして、${paperName}をセットしてください。`
+      );
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -589,26 +653,88 @@ export function DocumentForm({
                 : '新規書類作成'}
           </h3>
         </div>
-        {showPdfTemplatePreview && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
-            type="button"
-            variant="outline"
+            type="submit"
+            form="document-form"
             size="sm"
-            onClick={handleGeneratePdf}
-            disabled={isGeneratingPdf}
-            className="border-ai/40 text-ai hover:bg-ai/5"
+            className="bg-matsu hover:bg-matsu-dark text-white"
+            disabled={isMutating}
           >
-            {isGeneratingPdf ? (
+            {isMutating ? (
               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Download className="mr-2 h-4 w-4" />
+              <Save className="mr-2 h-4 w-4" />
             )}
-            PDF生成・ダウンロード
+            {isEditMode ? '変更を保存' : '書類を保存'}
           </Button>
-        )}
+          {isEditMode && onDelete && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-beni hover:text-beni-dark hover:bg-beni-50 border-beni-200"
+              onClick={onDelete}
+            >
+              削除
+            </Button>
+          )}
+          {isPermitTemplate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handlePrintTextOnly('permit')}
+              disabled={isGeneratingPdf}
+              className="border-matsu/40 text-matsu-dark hover:bg-matsu/5"
+            >
+              {isGeneratingPdf ? (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="mr-2 h-4 w-4" />
+              )}
+              台紙に文字だけ印刷
+            </Button>
+          )}
+          {isEnvelopeLetterTemplate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handlePrintTextOnly('envelope-letter')}
+              disabled={isGeneratingPdf}
+              className="border-matsu/40 text-matsu-dark hover:bg-matsu/5"
+            >
+              {isGeneratingPdf ? (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="mr-2 h-4 w-4" />
+              )}
+              封筒に文字だけ印刷
+            </Button>
+          )}
+          {showPdfTemplatePreview && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleGeneratePdf}
+              disabled={isGeneratingPdf}
+              className="border-ai/40 text-ai hover:bg-ai/5"
+            >
+              {isGeneratingPdf ? (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              PDF生成・ダウンロード
+            </Button>
+          )}
+        </div>
       </div>
 
       <form
+        id="document-form"
         onSubmit={handleSubmit}
         className={showPdfTemplatePreview ? '' : 'space-y-6'}
       >
@@ -627,9 +753,9 @@ export function DocumentForm({
                 </h3>
                 <p className="text-xs text-hai mt-1 leading-relaxed">
                   {isPermitTemplate
-                    ? '許可証（1枚）テンプレート上に印字位置の入力欄を表示しています。'
+                    ? '許可証（1枚）の台紙の上に、入力欄を置いています。上の「書類を保存」で、この人の書類として残せます。PDFの保存は台紙の絵も一緒に残します。印刷は、台紙の上に入れた文字だけを重ねます。'
                     : isEnvelopeLetterTemplate
-                      ? '封筒書は表面・裏面の2ページです。タブで切り替えてください。'
+                      ? '封筒の表だけです。右上の郵便番号の下に住所、真ん中に名前を縦書きで印字します。'
                       : isEnvelopeBaseTemplate
                         ? '封筒大（大型封筒）1枚のテンプレートです。'
                         : isPaymentGuideTemplate
@@ -1060,8 +1186,11 @@ export function DocumentForm({
                     onChange={(e) =>
                       handleTemplateDataChange('plotNumber', e.target.value)
                     }
-                    placeholder="A-56"
+                    placeholder="A-56、B-12"
                   />
+                  <p className="text-xs text-hai">
+                    この人が契約中の区画は、1枚の許可証にまとめて入ります。
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>面積（㎡）</Label>
@@ -1181,7 +1310,7 @@ export function DocumentForm({
                   {isEnvelopeLetterTemplate ? '封筒書（宛先）' : '封筒大（宛先）'}
                 </h3>
                 <p className="text-xs text-hai mt-0.5">
-                  プレビュー上の宛先欄に印字されます。
+                  右上の郵便番号の下に住所、真ん中に名前を、縦書きで印字します。
                 </p>
               </div>
             </header>
@@ -1190,60 +1319,58 @@ export function DocumentForm({
                 <Label>郵便番号（7桁・ハイフン可）</Label>
                 <Input
                   value={templateData.recipientPostalCode || ''}
-                  onChange={(e) =>
-                    isEnvelopeLetterTemplate
-                      ? handleEnvelopePostalCodeChange(e.target.value)
-                      : handleTemplateDataChange(
-                          'recipientPostalCode',
-                          e.target.value
-                        )
-                  }
+                  onChange={(e) => handleEnvelopePostalCodeChange(e.target.value)}
                   placeholder="807-0081"
                 />
-                {isEnvelopeLetterTemplate && (
-                  <p className="text-xs text-hai">
-                    プレビューでは各赤枠に1桁ずつ印字します（ハイフンは印字しません）。
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>宛名</Label>
-                <Input
-                  value={templateData.recipientName || ''}
-                  onChange={(e) =>
-                    handleTemplateDataChange(
-                      'recipientName',
-                      e.target.value
-                    )
-                  }
-                  placeholder="【デモ】小峰 太郎 様"
-                />
+                <p className="text-xs text-hai">
+                  郵便番号は右上の枠に1桁ずつ入ります。ハイフンは印字しません。
+                </p>
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label>宛先住所（1行目）</Label>
-                <Input
-                  value={templateData.recipientAddress || ''}
-                  onChange={(e) =>
-                    handleTemplateDataChange(
-                      'recipientAddress',
-                      e.target.value
-                    )
-                  }
-                  placeholder="デモ県デモ市 小峰霊園サンプル…（架空）"
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label>宛先住所（2行目・任意）</Label>
-                <Input
-                  value={templateData.recipientAddress2 || ''}
-                  onChange={(e) =>
-                    handleTemplateDataChange(
-                      'recipientAddress2',
-                      e.target.value
-                    )
-                  }
-                  placeholder="マンション名・号室など"
-                />
+                <p className="text-xs text-hai">
+                  住所は右、名前は中央です。文字は上から下へ並びます。
+                </p>
+                <div className="flex items-start justify-end gap-3 overflow-x-auto">
+                  <div className="space-y-1">
+                    <Label>宛名</Label>
+                    <textarea
+                      value={templateData.recipientName || ''}
+                      onChange={(e) =>
+                        handleTemplateDataChange('recipientName', e.target.value)
+                      }
+                      placeholder="小峰 太郎 様"
+                      aria-label="宛名の入力"
+                      className="h-64 w-16 resize-none rounded-md border border-gin px-1 py-2 text-center font-mincho text-sumi outline-none focus:ring-2 focus:ring-matsu"
+                      style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>住所（2列目）</Label>
+                    <textarea
+                      value={templateData.recipientAddress2 || ''}
+                      onChange={(e) =>
+                        handleTemplateDataChange('recipientAddress2', e.target.value)
+                      }
+                      placeholder="番地・建物名"
+                      aria-label="宛先住所2列目の入力"
+                      className="h-64 w-14 resize-none rounded-md border border-gin px-1 py-2 font-mincho text-sumi outline-none focus:ring-2 focus:ring-matsu"
+                      style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>住所（右の列）</Label>
+                    <textarea
+                      value={templateData.recipientAddress || ''}
+                      onChange={(e) =>
+                        handleTemplateDataChange('recipientAddress', e.target.value)
+                      }
+                      placeholder="福岡県北九州市"
+                      aria-label="宛先住所の入力"
+                      className="h-64 w-14 resize-none rounded-md border border-gin px-1 py-2 font-mincho text-sumi outline-none focus:ring-2 focus:ring-matsu"
+                      style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </section>
@@ -1354,7 +1481,7 @@ export function DocumentForm({
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {isEditMode ? '更新' : '作成'}
+            {isEditMode ? '変更を保存' : '書類を保存'}
           </Button>
         </div>
           </div>

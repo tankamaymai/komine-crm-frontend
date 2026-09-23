@@ -821,6 +821,14 @@ export async function getPlotById(
   return apiGet<PlotDetailResponse>(`/plots/${id}${query ? `?${query}` : ''}`);
 }
 
+/** 契約中の人が持っている区画番号を、許可証1枚用の文字列で返す */
+export function getContractorPlotNumber(customerId: string) {
+  if (shouldUseMockData()) {
+    return Promise.resolve({ success: true as const, data: { plotNumber: '' } });
+  }
+  return apiGet<{ plotNumber: string }>(`/plots/contractor/${customerId}/plots`);
+}
+
 /**
  * 区画作成
  *
