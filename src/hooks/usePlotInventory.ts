@@ -12,6 +12,8 @@ import {
   getInventorySections,
   getInventoryAreas,
   getInventoryMonthlyReport,
+  getVacantLedger,
+  getSalesLedger,
   InventorySummary,
   PeriodSummary,
   SectionInventoryItem,
@@ -23,6 +25,8 @@ import {
   AreaSortKey,
   SortOrder,
   MonthlyReportResponse,
+  VacantLedgerResponse,
+  SalesLedgerResponse,
 } from '@/lib/api/plot-inventory';
 
 // ==================== 型定義 ====================
@@ -432,4 +436,86 @@ export function usePlotInventoryMonthlyReport(
   }, [autoFetch, fetchReport]);
 
   return { report, isLoading, error, includeOther, setIncludeOther, refresh: fetchReport };
+}
+
+/**
+ * 空き区画一覧（番号と㎡）を取得する。開いたときだけ取る。
+ */
+export function useVacantLedger(options: UsePlotInventoryOptions = {}) {
+  const { autoFetch = true } = options;
+  const [ledger, setLedger] = useState<VacantLedgerResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const genRef = useRef(0);
+
+  const refresh = useCallback(async () => {
+    const myGen = ++genRef.current;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await getVacantLedger();
+      if (myGen !== genRef.current) return;
+      if (response.success) {
+        setLedger(response.data);
+      } else {
+        setError(response.error?.message || '空き区画一覧の取得に失敗しました');
+      }
+    } catch {
+      if (myGen !== genRef.current) return;
+      setError('ネットワークエラーが発生しました');
+    } finally {
+      if (myGen === genRef.current) setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (autoFetch) refresh();
+  }, [autoFetch, refresh]);
+
+  return { ledger, isLoading, error, refresh };
+}
+
+/**
+ * 販売数（月ごとの件数と、種類ごとの件数・㎡）を取得する。
+ * 取扱の名前で絞れる。今の契約データは取扱が空のことが多いので、最初は全体を出す。
+ */
+export function useSalesLedger(options: UsePlotInventoryOptions = {}) {
+  const { autoFetch = true } = options;
+  const [ledger, setLedger] = useState<SalesLedgerResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [agent, setAgent] = useState('');
+  const [appliedAgent, setAppliedAgent] = useState('');
+  const genRef = useRef(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAppliedAgent(agent), 300);
+    return () => clearTimeout(timer);
+  }, [agent]);
+
+  const refresh = useCallback(async () => {
+    const myGen = ++genRef.current;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await getSalesLedger(appliedAgent);
+      if (myGen !== genRef.current) return;
+      if (response.success) {
+        setLedger(response.data);
+      } else {
+        setError(response.error?.message || '販売数の取得に失敗しました');
+      }
+    } catch {
+      if (myGen !== genRef.current) return;
+      setError('ネットワークエラーが発生しました');
+    } finally {
+      if (myGen === genRef.current) setIsLoading(false);
+    }
+  }, [appliedAgent]);
+
+  useEffect(() => {
+    if (autoFetch) refresh();
+  }, [autoFetch, refresh]);
+
+  return { ledger, isLoading, error, agent, setAgent, refresh };
 }

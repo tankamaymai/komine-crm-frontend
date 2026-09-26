@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ClipboardList, Check, X, BarChart3, Hash, Layers, PieChart, Grid3X3, ChevronDown, ChevronUp, Plus, Map } from 'lucide-react';
@@ -11,6 +10,8 @@ import { CreateVacantPlotDialog } from '@/components/create-vacant-plot-dialog';
 import { BulkCreateVacantPlotsDialog } from '@/components/bulk-create-vacant-plots-dialog';
 import { PlotMapSection } from '@/components/plot-map/PlotMapSection';
 import MonthlyReportView from '@/components/plot-availability/monthly-report-view';
+import VacantLedgerView from '@/components/plot-availability/vacant-ledger-view';
+import SalesLedgerView from '@/components/plot-availability/sales-ledger-view';
 import { findMapId, hasPlotMap, parseMapId } from '@/lib/plot-maps/overlay';
 import type { PlotMapId } from '@/lib/plot-maps/types';
 import {
@@ -31,21 +32,27 @@ import {
 import PageHeader from '@/components/page-header';
 import { LegacyAwareValue, LegacyValueNote } from '@/components/legacy-aware-value';
 import { isLegacyPlotNumber, isLegacyAreaName } from '@/lib/legacy-plot-display';
+import { pickExact, sortSectionRows, uniqueNames } from '@/lib/inventory-pick-filter';
+import { useMasters } from '@/hooks/useMasters';
 import {
   usePlotInventorySummary,
   usePlotInventoryPeriods,
   usePlotInventorySections,
   usePlotInventoryAreas,
   usePlotInventoryMonthlyReport,
+  useVacantLedger,
+  useSalesLedger,
 } from '@/hooks/usePlotInventory';
 
 type ViewMode = 'all' | 'available' | 'soldout' | 'usage-rate' | 'remaining';
-// 区画別 / 面積別 / 月次報告（税理士提出用 Excel の配置を再現。議事録 2026-07-21 §6）
-type DisplayMode = 'section' | 'area' | 'monthly';
+// 区画別 / 面積別 / 月次報告 / 空き一覧 / 販売数
+type DisplayMode = 'section' | 'area' | 'monthly' | 'vacant' | 'sales';
 type SelectedPeriod = PlotPeriod | 'all';
 type SortKey = 'period' | 'section' | 'totalCount' | 'usedCount' | 'remainingCount' | 'usageRate';
 type AreaSortKey = 'period' | 'areaSqm' | 'totalCount' | 'usedCount' | 'remainingCount' | 'remainingAreaSqm' | 'plotType';
 type SortOrder = 'asc' | 'desc';
+
+const PLOT_TYPE_OPTIONS = ['自由', '吉相', '樹林', '天空', 'るり庵', '納骨堂', '桜', '墳墓', '特別区'];
 
 const menuItems = [
   { key: 'all', label: '全区画表示', icon: ClipboardList, description: '全ての区画を一覧表示' },
@@ -66,7 +73,8 @@ export default function PlotAvailabilityManagement() {
   const [sortKey, setSortKey] = useState<SortKey>('period');
   const [areaSortKey, setAreaSortKey] = useState<AreaSortKey>('period');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSection, setSelectedSection] = useState('all');
+  const [selectedPlotType, setSelectedPlotType] = useState('all');
   const [isKpiExpanded, setIsKpiExpanded] = useState(false);
   const [isPeriodCardsExpanded, setIsPeriodCardsExpanded] = useState(true);
 
@@ -77,6 +85,9 @@ export default function PlotAvailabilityManagement() {
   const areasHook = usePlotInventoryAreas();
   // 月次報告は開いたときだけ集計する（全区画を舐めるので初期表示では走らせない）
   const monthlyHook = usePlotInventoryMonthlyReport({ autoFetch: displayMode === 'monthly' });
+  const vacantHook = useVacantLedger({ autoFetch: displayMode === 'vacant' });
+  const salesHook = useSalesLedger({ autoFetch: displayMode === 'sales' });
+  const isExcelSheet = displayMode === 'monthly' || displayMode === 'vacant' || displayMode === 'sales';
 
   // 空き区画の先行登録（システム確認 項目⑦）。閲覧のみ（viewer）には出さない
   const { user } = useAuth();
@@ -90,6 +101,8 @@ export default function PlotAvailabilityManagement() {
     sectionsHook.refresh();
     areasHook.refresh();
     if (displayMode === 'monthly') monthlyHook.refresh();
+    if (displayMode === 'vacant') vacantHook.refresh();
+    if (displayMode === 'sales') salesHook.refresh();
   };
 
   // useCallback 済みで安定した setter 群を取り出す。フックの戻り値オブジェクト自体は
@@ -97,6 +110,9 @@ export default function PlotAvailabilityManagement() {
   const { setPeriod: setSectionsPeriod, setStatus: setSectionsStatus, setSearch: setSectionsSearch } =
     sectionsHook;
   const { setPeriod: setAreasPeriod, setSearch: setAreasSearch } = areasHook;
+  const { sectionNames } = useMasters();
+  const appliedSectionSearch = useRef('all');
+  const appliedPlotTypeSearch = useRef('all');
 
   // 期の変更をセクション・面積フックに反映
   useEffect(() => {
@@ -120,16 +136,18 @@ export default function PlotAvailabilityManagement() {
     }
   }, [viewMode, setSectionsStatus]);
 
-  // 検索クエリの反映
-  // デバウンス: 入力が params に直結しており 1 キーストロークごとに
-  // sections/areas の 2 本フェッチが走るため、300ms 待ってから反映（#231）
+  // 選んだ区画名をサーバーへ渡す。一覧の先頭ページに無くても、その区画の数字が返る。
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSectionsSearch(searchQuery);
-      setAreasSearch(searchQuery);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery, setSectionsSearch, setAreasSearch]);
+    if (appliedSectionSearch.current === selectedSection) return;
+    appliedSectionSearch.current = selectedSection;
+    setSectionsSearch(selectedSection === 'all' ? '' : selectedSection);
+  }, [selectedSection, setSectionsSearch]);
+
+  useEffect(() => {
+    if (appliedPlotTypeSearch.current === selectedPlotType) return;
+    appliedPlotTypeSearch.current = selectedPlotType;
+    setAreasSearch(selectedPlotType === 'all' ? '' : selectedPlotType);
+  }, [selectedPlotType, setAreasSearch]);
 
   // ソートの反映
   // setSort は params.sortBy/sortOrder の変化で再生成されるため依存に含めない。
@@ -157,9 +175,36 @@ export default function PlotAvailabilityManagement() {
     lastUpdated: '',
   };
 
-  // 表示データ
-  const displayData = sectionsHook.items;
-  const displayAreaData = areasHook.items;
+  // 区画の候補は台帳と同じマスタから出す。今の期に属するものだけ。
+  // サーバーは「C」で「吉相C」も返すので、画面では名前が完全に一致した行だけ残す。
+  const sectionOptions = uniqueNames([
+    ...sectionNames
+      .filter((section) => selectedPeriod === 'all' || section.period === selectedPeriod)
+      .map((section) => section.name),
+    ...sectionsHook.items.map((item) => item.section),
+    ...(selectedSection !== 'all' ? [selectedSection] : []),
+  ]).filter((name) => !isLegacyAreaName(name) && !isLegacyPlotNumber(name));
+  const plotTypeOptions = uniqueNames([
+    ...PLOT_TYPE_OPTIONS,
+    ...areasHook.items.map((item) => item.plotType),
+  ]);
+  const displayData = sortSectionRows(
+    pickExact(sectionsHook.items, selectedSection, (item) => item.section),
+    sortKey,
+    sortOrder,
+  );
+  const displayAreaData = pickExact(areasHook.items, selectedPlotType, (item) => item.plotType);
+
+  const changePeriod = (period: SelectedPeriod) => {
+    setSelectedPeriod(period);
+    setSelectedSection('all');
+    setSelectedPlotType('all');
+  };
+
+  const clearSectionPick = () => {
+    setSelectedSection('all');
+    setSelectedPlotType('all');
+  };
 
   // 平米数計算（APIから取得したサマリーを使用）
   const areaStats = {
@@ -286,11 +331,35 @@ export default function PlotAvailabilityManagement() {
               >
                 月次報告
               </button>
+              <button
+                onClick={() => setDisplayMode('vacant')}
+                title="空いている区画の番号と広さを、期ごとに表示します"
+                className={cn(
+                  'px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200',
+                  displayMode === 'vacant'
+                    ? 'bg-ai text-white shadow-elegant'
+                    : 'text-hai hover:text-sumi hover:bg-white'
+                )}
+              >
+                空き一覧
+              </button>
+              <button
+                onClick={() => setDisplayMode('sales')}
+                title="月ごと・種類ごとに、売れた区画の数と広さを表示します"
+                className={cn(
+                  'px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200',
+                  displayMode === 'sales'
+                    ? 'bg-ai text-white shadow-elegant'
+                    : 'text-hai hover:text-sumi hover:bg-white'
+                )}
+              >
+                販売数
+              </button>
             </div>
           </div>
 
-          {/* フィルター（viewMode）。月次報告は帳票の固定レイアウトなので絞り込みは効かない */}
-          {displayMode !== 'monthly' && (
+          {/* フィルター。Excelの表はそのまま出すので絞り込みは効かない */}
+          {!isExcelSheet && (
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-xs font-semibold text-hai whitespace-nowrap">絞り込み</span>
             <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
@@ -316,7 +385,7 @@ export default function PlotAvailabilityManagement() {
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-hai whitespace-nowrap">期</span>
               <button
-                onClick={() => setSelectedPeriod('all')}
+                onClick={() => changePeriod('all')}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-elegant bg-ai-50 text-ai border border-ai-200 text-sm font-medium hover:bg-ai-100 transition-colors"
               >
                 {selectedPeriod}
@@ -362,6 +431,22 @@ export default function PlotAvailabilityManagement() {
             includeOther={monthlyHook.includeOther}
             onIncludeOtherChange={monthlyHook.setIncludeOther}
             onRefresh={monthlyHook.refresh}
+          />
+        ) : displayMode === 'vacant' ? (
+          <VacantLedgerView
+            ledger={vacantHook.ledger}
+            isLoading={vacantHook.isLoading}
+            error={vacantHook.error}
+            onRefresh={vacantHook.refresh}
+          />
+        ) : displayMode === 'sales' ? (
+          <SalesLedgerView
+            ledger={salesHook.ledger}
+            isLoading={salesHook.isLoading}
+            error={salesHook.error}
+            agent={salesHook.agent}
+            onAgentChange={salesHook.setAgent}
+            onRefresh={salesHook.refresh}
           />
         ) : (
         <>
@@ -504,7 +589,7 @@ export default function PlotAvailabilityManagement() {
                   return (
                     <button
                       key={ps.period}
-                      onClick={() => setSelectedPeriod(selectedPeriod === ps.period ? 'all' : ps.period)}
+                      onClick={() => changePeriod(selectedPeriod === ps.period ? 'all' : (ps.period as SelectedPeriod))}
                       className={cn(
                         'bg-white border rounded-elegant p-2.5 md:p-3 text-left transition-all duration-200 hover:shadow-elegant',
                         selectedPeriod === ps.period
@@ -546,19 +631,59 @@ export default function PlotAvailabilityManagement() {
             )}
           </div>
 
-          {/* 検索バー */}
+          {/* 期・区画は文字入力ではなく、台帳と同じように一覧から選ぶ */}
           <div className="bg-white rounded-elegant-lg shadow-elegant p-4 mb-4 border border-gin">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={displayMode === 'section' ? "区画名・期で検索…" : "面積・タイプで検索…"}
-                className="flex-1 sm:max-w-md"
-              />
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs sm:text-sm text-hai whitespace-nowrap">期:</span>
+                <Select value={selectedPeriod} onValueChange={(value) => changePeriod(value as SelectedPeriod)}>
+                  <SelectTrigger className="h-9 w-full sm:w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全て</SelectItem>
+                    {periodSummaries.map((ps) => (
+                      <SelectItem key={ps.period} value={ps.period}>{ps.period}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {displayMode === 'section' ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-sm text-hai whitespace-nowrap">区画:</span>
+                  <Select value={selectedSection} onValueChange={setSelectedSection}>
+                    <SelectTrigger className="h-9 w-full sm:w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全て</SelectItem>
+                      {sectionOptions.map((name) => (
+                        <SelectItem key={name} value={name}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-sm text-hai whitespace-nowrap">種類:</span>
+                  <Select value={selectedPlotType} onValueChange={setSelectedPlotType}>
+                    <SelectTrigger className="h-9 w-full sm:w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全て</SelectItem>
+                      {plotTypeOptions.map((name) => (
+                        <SelectItem key={name} value={name}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <Button
-                onClick={() => setSearchQuery('')}
+                onClick={clearSectionPick}
                 variant="outline"
                 size="default"
+                disabled={selectedSection === 'all' && selectedPlotType === 'all'}
               >
                 クリア
               </Button>
@@ -566,6 +691,12 @@ export default function PlotAvailabilityManagement() {
               <span className="text-sm text-hai">
                 表示件数: <span className="font-semibold text-sumi">{displayMode === 'section' ? displayData.length : displayAreaData.length}</span>件
                 {selectedPeriod !== 'all' && <span className="ml-2 text-ai">({selectedPeriod})</span>}
+                {displayMode === 'section' && selectedSection !== 'all' && (
+                  <span className="ml-2 text-matsu">({selectedSection})</span>
+                )}
+                {displayMode === 'area' && selectedPlotType !== 'all' && (
+                  <span className="ml-2 text-cha">({selectedPlotType})</span>
+                )}
                 {displayMode === 'area' && <span className="ml-2 text-cha">[面積別]</span>}
               </span>
             </div>
@@ -692,9 +823,12 @@ export default function PlotAvailabilityManagement() {
                       return (
                         <tr
                           key={`${item.period}-${item.section}`}
+                          onClick={() => setSelectedSection(item.section)}
                           className={cn(
-                            "hover:bg-kinari transition-colors",
-                            index % 2 === 0 ? 'bg-white' : 'bg-shiro'
+                            "cursor-pointer transition-colors hover:bg-kinari",
+                            selectedSection === item.section
+                              ? "bg-matsu-50"
+                              : index % 2 === 0 ? "bg-white" : "bg-shiro"
                           )}
                         >
                           <td className="px-2 md:px-4 py-2 md:py-3 text-sm">
@@ -706,7 +840,16 @@ export default function PlotAvailabilityManagement() {
                             </span>
                           </td>
                           <td className="px-2 md:px-4 py-2 md:py-3 text-xs md:text-sm font-semibold text-sumi">
-                            <LegacyAwareValue value={item.section} kind="plotNumber" emptyText="-" />
+                            <button
+                              type="button"
+                              className="cursor-pointer text-left font-semibold text-ai underline-offset-2 hover:underline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedSection(item.section);
+                              }}
+                            >
+                              <LegacyAwareValue value={item.section} kind="plotNumber" emptyText="-" />
+                            </button>
                             {item.category && (
                               <span className="ml-1 md:ml-2 text-xs text-hai font-normal">({item.category})</span>
                             )}
@@ -718,7 +861,8 @@ export default function PlotAvailabilityManagement() {
                                 size="sm"
                                 variant="outline"
                                 className="h-8 cursor-pointer px-2 text-xs"
-                                onClick={() => {
+                                onClick={(event) => {
+                                  event.stopPropagation();
                                   const mapId = findMapId(item.period, item.section);
                                   if (mapId) openPlotMap(mapId);
                                 }}
@@ -1018,7 +1162,7 @@ export default function PlotAvailabilityManagement() {
               )}
             </div>
 
-            {(displayMode === 'section' ? displayData.length : displayAreaData.length) === 0 && (
+            {(displayMode === 'section' ? displayData.length : displayAreaData.length) === 0 && !isLoading && (
               <div className="text-center py-16 text-hai">
                 <svg className="w-16 h-16 mx-auto mb-4 text-gin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
