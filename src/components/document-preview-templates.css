@@ -9,10 +9,18 @@
 }
 
 /* ─── 護持費のお知らせ レイアウト ─── */
+.komine-invoice-preview {
+  width: 100%;
+  height: 100%;
+}
+
 .komine-invoice-preview .notice-container {
-  max-width: 210mm;
-  margin: 0 auto;
-  padding: 20mm 22mm;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 16mm 18mm;
+  box-sizing: border-box;
 }
 
 .komine-invoice-preview .top-recipient {
@@ -386,10 +394,18 @@
   box-sizing: border-box;
 }
 
+.komine-payment-preview {
+  width: 100%;
+  height: 100%;
+}
+
 .komine-payment-preview .guide-container {
-  max-width: 210mm;
-  margin: 0 auto;
-  padding: 18mm 20mm;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 14mm 16mm;
+  box-sizing: border-box;
 }
 
 .komine-payment-preview .top-title {

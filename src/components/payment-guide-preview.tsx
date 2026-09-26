@@ -6,14 +6,11 @@
  * 編集可能なフィールドを重ねたプレビュー。
  */
 
-import { Type } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  DOCUMENT_TEXT_STYLE_PRESETS,
-  type DocumentTextStylePresetId,
-} from './document-text-style-presets';
+import { type DocumentTextStylePresetId } from './document-text-style-presets';
 import './document-preview-templates.css';
+import { FitZoomFrame, PaperPage } from './document-preview-zoom';
+import { paperSizeOf } from '@/lib/paper-sizes';
 
 export const PAYMENT_GUIDE_DEFAULTS: Record<string, string> = {
   option1: '当霊園事務所へご持参下さい。',
@@ -37,55 +34,6 @@ export const PAYMENT_GUIDE_DEFAULTS: Record<string, string> = {
   tel: '093-613-3868',
   fax: '093-613-3893',
 };
-
-function DocumentTextStyleToolbar({
-  value,
-  onChange,
-}: {
-  value: DocumentTextStylePresetId;
-  onChange: (id: DocumentTextStylePresetId) => void;
-}) {
-  const current =
-    DOCUMENT_TEXT_STYLE_PRESETS.find((p) => p.id === value) ??
-    DOCUMENT_TEXT_STYLE_PRESETS[0];
-  return (
-    <div className="rounded-xl border-2 border-matsu-500/35 bg-gradient-to-br from-matsu-50/90 to-white p-3 shadow-sm ring-1 ring-matsu-500/10">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-matsu text-white shrink-0">
-          <Type className="h-3.5 w-3.5" aria-hidden />
-        </span>
-        <div>
-          <h4 className="text-xs font-semibold text-sumi leading-tight">
-            テキストの種
-          </h4>
-          <p className="text-[10px] text-hai leading-snug mt-0.5">
-            書体バランスを変えられます
-          </p>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-1.5" role="radiogroup">
-        {DOCUMENT_TEXT_STYLE_PRESETS.map((p) => (
-          <Button
-            key={p.id}
-            type="button"
-            variant={value === p.id ? 'default' : 'outline'}
-            size="sm"
-            className={cn(
-              'h-8 px-2.5 text-xs rounded-md',
-              value === p.id && 'bg-matsu hover:bg-matsu-dark shadow-sm'
-            )}
-            onClick={() => onChange(p.id)}
-          >
-            {p.label}
-          </Button>
-        ))}
-      </div>
-      <p className="text-[10px] text-hai mt-2 border-t border-gin pt-2">
-        {current.description}
-      </p>
-    </div>
-  );
-}
 
 interface PaymentGuideLivePreviewProps {
   templateData: Record<string, string>;
@@ -145,20 +93,18 @@ export function PaymentGuideLivePreview({
   templateData,
   onTemplateDataChange,
   textStylePreset,
-  onTextStyleChange,
 }: PaymentGuideLivePreviewProps) {
   const v = (key: string) =>
     templateData[key] ?? PAYMENT_GUIDE_DEFAULTS[key] ?? '';
+  const paper = paperSizeOf(templateData.paperSize);
 
   return (
     <div className="space-y-3">
-      <DocumentTextStyleToolbar
-        value={textStylePreset}
-        onChange={onTextStyleChange}
-      />
+      <FitZoomFrame>
+      <PaperPage widthMm={paper.widthMm} heightMm={paper.heightMm}>
       <div
         className={cn(
-          'komine-payment-preview rounded border border-gin shadow-sm overflow-hidden',
+          'komine-payment-preview overflow-hidden',
           textStylePreset !== 'default' && `doc-preset-${textStylePreset}`
         )}
       >
@@ -407,6 +353,8 @@ export function PaymentGuideLivePreview({
           </div>
         </div>
       </div>
+      </PaperPage>
+      </FitZoomFrame>
     </div>
   );
 }

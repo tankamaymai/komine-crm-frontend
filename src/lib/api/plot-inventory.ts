@@ -463,3 +463,80 @@ export async function getInventoryMonthlyReport(
 
   return apiGet<MonthlyReportResponse>('/plots/inventory/monthly-report', queryParams);
 }
+
+// ==================== 空き区画一覧・販売数（Excelの残り2種類） ====================
+
+/** 空き区画1件。番号と、いま空いている広さ。 */
+export interface VacantLedgerPlot {
+  id: string;
+  label: string;
+  areaSqm: number;
+}
+
+export interface VacantLedgerArea {
+  areaName: string;
+  plots: VacantLedgerPlot[];
+}
+
+export interface VacantLedgerGroup {
+  period: string;
+  areas: VacantLedgerArea[];
+  count: number;
+}
+
+export interface VacantLedgerResponse {
+  asOfDate: string;
+  total: number;
+  groups: VacantLedgerGroup[];
+}
+
+export interface SalesMonthCount {
+  month: number;
+  count: number;
+  cumulative: number;
+}
+
+export interface FiscalYearSales {
+  fiscalYear: number;
+  months: SalesMonthCount[];
+  total: number;
+}
+
+export interface TypeSalesRow {
+  areaName: string;
+  count: number;
+  areaSqm: number;
+}
+
+export interface TypeSalesMonth {
+  month: number;
+  rows: TypeSalesRow[];
+}
+
+export interface CalendarYearTypeSales {
+  year: number;
+  months: TypeSalesMonth[];
+  totalCount: number;
+  totalAreaSqm: number;
+}
+
+export interface SalesLedgerResponse {
+  asOfDate: string;
+  agentFilter: string | null;
+  agentNames: string[];
+  fiscalYears: FiscalYearSales[];
+  typeSales: CalendarYearTypeSales[];
+}
+
+/** Excel「空き区画一覧」と同じ項目（番号と㎡）を期ごとに取得する。 */
+export async function getVacantLedger(): Promise<ApiResponse<VacantLedgerResponse>> {
+  return apiGet<VacantLedgerResponse>('/plots/inventory/vacant-ledger');
+}
+
+/** Excel「今年度販売区画数」「年別販売区画数」と同じ項目を取得する。 */
+export async function getSalesLedger(agent?: string): Promise<ApiResponse<SalesLedgerResponse>> {
+  const query: Record<string, string | undefined> = {};
+  const needle = agent?.trim();
+  if (needle) query.agent = needle;
+  return apiGet<SalesLedgerResponse>('/plots/inventory/sales-ledger', query);
+}

@@ -8,8 +8,10 @@ import {
   type DocumentTextStylePresetId,
 } from './document-text-style-presets';
 import './document-preview-templates.css';
+import { FitZoomFrame, PaperPage } from './document-preview-zoom';
+import { paperSizeOf } from '@/lib/paper-sizes';
 
-function DocumentTextStyleToolbar({
+export function DocumentTextStyleToolbar({
   value,
   onChange,
 }: {
@@ -28,10 +30,10 @@ function DocumentTextStyleToolbar({
         </span>
         <div>
           <h4 className="text-sm font-semibold text-sumi-900 leading-tight">
-            テキストの種
+            文字の見た目
           </h4>
           <p className="text-[11px] text-sumi-500 leading-snug mt-0.5">
-            プレビューとPDFの書体・サイズバランスが変わります
+            紙と、印刷したときの文字のバランスが変わります
           </p>
         </div>
       </div>
@@ -149,7 +151,6 @@ export function InvoiceLivePreview({
   templateData,
   onTemplateDataChange,
   textStylePreset,
-  onTextStyleChange,
 }: InvoiceLivePreviewProps) {
   const customerName = templateData.customerName || '';
   const yearCount = templateData.yearCount || '';
@@ -160,16 +161,15 @@ export function InvoiceLivePreview({
 
   const amountNum = parseFloat(amountStr);
   const amountDisplay = Number.isFinite(amountNum) ? formatYen(amountNum) : '';
+  const paper = paperSizeOf(templateData.paperSize);
 
   return (
     <div className="space-y-4">
-      <DocumentTextStyleToolbar
-        value={textStylePreset}
-        onChange={onTextStyleChange}
-      />
+      <FitZoomFrame>
+      <PaperPage widthMm={paper.widthMm} heightMm={paper.heightMm}>
       <div
         className={cn(
-          'komine-invoice-preview rounded border border-sumi-200 shadow-sm overflow-hidden',
+          'komine-invoice-preview overflow-hidden',
           textStylePreset !== 'default' && `doc-preset-${textStylePreset}`
         )}
       >
@@ -310,6 +310,8 @@ export function InvoiceLivePreview({
           </div>
         </div>
       </div>
+      </PaperPage>
+      </FitZoomFrame>
     </div>
   );
 }
@@ -328,17 +330,13 @@ export function PostcardLivePreview({
   templateData,
   onTemplateDataChange,
   textStylePreset,
-  onTextStyleChange,
 }: PostcardLivePreviewProps) {
   return (
     <div className="space-y-4">
-      <DocumentTextStyleToolbar
-        value={textStylePreset}
-        onChange={onTextStyleChange}
-      />
+      <FitZoomFrame>
       <div
         className={cn(
-          'komine-postcard-preview rounded border border-sumi-200 shadow-sm overflow-auto flex justify-center bg-sumi-100 p-4',
+          'komine-postcard-preview rounded border border-sumi-200 shadow-sm flex justify-center bg-sumi-100 p-4',
           textStylePreset !== 'default' && `doc-preset-${textStylePreset}`
         )}
       >
@@ -430,6 +428,7 @@ export function PostcardLivePreview({
         </div>
       </div>
     </div>
+      </FitZoomFrame>
     </div>
   );
 }

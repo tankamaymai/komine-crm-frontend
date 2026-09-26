@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,10 +25,8 @@ import { downloadPdfFromBase64, printPdfFromBase64 } from '@/lib/api/documents';
 import {
   ArrowLeft,
   Save,
-  Upload,
   FileText,
   RefreshCw,
-  X,
   Download,
   Printer,
 } from 'lucide-react';
@@ -36,10 +34,23 @@ import { toast } from 'sonner';
 import { TemplateId } from './document-template-gallery';
 import {
   InvoiceLivePreview,
-  PostcardLivePreview,
+  DocumentTextStyleToolbar,
 } from './document-template-preview';
 import { PermitLivePreview } from './permit-live-preview';
+import { FreeformDocumentEditor } from './freeform-document-editor';
+import {
+  parseFreeformBlocks,
+  saveFreeformTemplate,
+  type FreeformBlock,
+  type SavedFreeformTemplate,
+} from '@/lib/freeform-templates';
+import { PAPER_SIZES, paperSizeOf, type PaperSizeId } from '@/lib/paper-sizes';
 import { PaymentGuideLivePreview } from './payment-guide-preview';
+import {
+  PostcardDocumentEditor,
+  selectedPostcardPiece,
+  updatePostcardPiece,
+} from './postcard-document-editor';
 import {
   normalizeTextStylePreset,
   type DocumentTextStylePresetId,
@@ -97,6 +108,8 @@ interface DocumentFormProps {
   onSaved: (doc: DocumentDetail) => void;
   /** 保存済み書類を消す。編集中だけ出す */
   onDelete?: () => void;
+  /** 保存した形から作るとき、その文字の並び */
+  savedFreeform?: SavedFreeformTemplate | null;
 }
 
 /**
@@ -261,6 +274,7 @@ export function DocumentForm({
   onBack,
   onSaved,
   onDelete,
+  savedFreeform,
 }: DocumentFormProps) {
   const isEditMode = !!documentId;
   const { data: existingData, isLoading: isLoadingDetail } = useDocumentDetail(
@@ -269,7 +283,6 @@ export function DocumentForm({
   const {
     create,
     update,
-    upload: uploadFile,
     generate,
     isLoading: isMutating,
     error: mutationError,
@@ -300,10 +313,11 @@ export function DocumentForm({
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([
     { description: '', quantity: '1', unitPrice: '', amount: '0' },
   ]);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [freeText, setFreeText] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [freeformSelectedId, setFreeformSelectedId] = useState<string | null>(null);
+  const [postcardSelectedId, setPostcardSelectedId] = useState<string | null>(null);
+  const [templateName, setTemplateName] = useState('');
 
   useEffect(() => {
     if (existingData) {
@@ -402,6 +416,23 @@ export function DocumentForm({
     };
   }, [templateId, isEditMode, plotDetail]);
 
+  useEffect(() => {
+    if (!savedFreeform) return;
+    const today = new Date().toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    setTemplateData((prev) => ({
+      ...prev,
+      freeformBlocks: JSON.stringify(savedFreeform.blocks),
+    }));
+    setFormData((prev) => ({
+      ...prev,
+      name: `${savedFreeform.name}_${today}`,
+    }));
+  }, [savedFreeform]);
+
   const handleInputChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -440,17 +471,6 @@ export function DocumentForm({
   const taxRate = 0.1;
   const tax = Math.round(subtotal * taxRate);
   const total = subtotal + tax;
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('ファイルサイズは10MB以下にしてください');
-        return;
-      }
-      setSelectedFile(file);
-    }
-  };
 
   const buildTemplateDataPayload = (): Record<string, unknown> => {
     const payload: Record<string, unknown> = { ...templateData };
@@ -517,10 +537,6 @@ export function DocumentForm({
     }
 
     if (result) {
-      if (selectedFile) {
-        const uploaded = await uploadFile(result.id, selectedFile);
-        if (!uploaded) toast.error('ファイルのアップロードに失敗しました');
-      }
       toast.success(
         isEditMode
           ? '書類の変更を保存しました。'
@@ -627,6 +643,10 @@ export function DocumentForm({
     showPostcardFields ||
     showPermitStyleLivePreview ||
     isPaymentGuideTemplate;
+  const isFreeformTemplate =
+    templateId === 'other' ||
+    (formData.type === 'other' && !isPaymentGuideTemplate);
+  const showPaperPreview = showPdfTemplatePreview || isFreeformTemplate;
 
   if (isEditMode && isLoadingDetail) {
     return (
@@ -648,9 +668,11 @@ export function DocumentForm({
           <h3 className="font-mincho text-lg md:text-xl font-semibold text-sumi truncate">
             {isEditMode
               ? '書類編集'
-              : templateId
-                ? `${TEMPLATE_LABELS[templateId]}を作成`
-                : '新規書類作成'}
+              : savedFreeform
+                ? `${savedFreeform.name}を作成`
+                : templateId
+                  ? `${TEMPLATE_LABELS[templateId]}を作成`
+                  : '新規書類作成'}
           </h3>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -736,23 +758,27 @@ export function DocumentForm({
       <form
         id="document-form"
         onSubmit={handleSubmit}
-        className={showPdfTemplatePreview ? '' : 'space-y-6'}
+        className={showPaperPreview ? '' : 'space-y-6'}
       >
         <div
           className={
-            showPdfTemplatePreview
+            showPaperPreview
               ? 'flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(360px,1.35fr)_minmax(260px,380px)] xl:gap-8 xl:items-start'
               : 'space-y-6'
           }
         >
-          {showPdfTemplatePreview && (
+          {showPaperPreview && (
             <aside className="order-first xl:order-none space-y-3 xl:sticky xl:top-4 xl:self-start min-w-0">
               <div>
                 <h3 className="font-mincho text-base font-semibold text-sumi">
                   プレビューで編集
                 </h3>
                 <p className="text-xs text-hai mt-1 leading-relaxed">
-                  {isPermitTemplate
+                  {isFreeformTemplate
+                    ? '左の白紙に文字を足します。位置や書き方は右側で決めます。'
+                    : showPostcardFields
+                      ? 'はがきの表と裏です。紙は実物と同じ縦長です。文字を押すと、右側でその文字だけ直せます。'
+                    : isPermitTemplate
                     ? '許可証（1枚）の台紙の上に、入力欄を置いています。上の「書類を保存」で、この人の書類として残せます。PDFの保存は台紙の絵も一緒に残します。印刷は、台紙の上に入れた文字だけを重ねます。'
                     : isEnvelopeLetterTemplate
                       ? '封筒の表だけです。右上の郵便番号の下に住所、真ん中に名前を縦書きで印字します。'
@@ -760,10 +786,10 @@ export function DocumentForm({
                         ? '封筒大（大型封筒）1枚のテンプレートです。'
                         : isPaymentGuideTemplate
                           ? '振込先や代表者名など、変更があれば直接編集できます。大半の文面は既定のままで問題ありません。'
-                          : '下の「テキストの種」で書体バランスを変えられます。本文はプレビュー内を直接編集してください。右のフォームとも同期します。'}
+                          : '右の「文字の見た目」で書体のバランスを変えられます。本文は左の紙の上で直接直せます。'}
                 </p>
               </div>
-              <div className="rounded-elegant-lg border border-gin bg-kinari-50/90 p-3 max-h-[min(90vh,58rem)] overflow-auto shadow-inner">
+              <div className="rounded-elegant-lg border border-gin bg-kinari-50/90 p-3 shadow-inner">
                 {showInvoiceFields && (
                   <InvoiceLivePreview
                     templateData={templateData}
@@ -773,11 +799,11 @@ export function DocumentForm({
                   />
                 )}
                 {showPostcardFields && (
-                  <PostcardLivePreview
+                  <PostcardDocumentEditor
                     templateData={templateData}
                     onTemplateDataChange={handleTemplateDataChange}
-                    textStylePreset={textStylePreset}
-                    onTextStyleChange={handleTextStyleChange}
+                    selectedId={postcardSelectedId}
+                    onSelect={setPostcardSelectedId}
                   />
                 )}
                 {showPermitStyleLivePreview && (
@@ -793,6 +819,17 @@ export function DocumentForm({
                     onTemplateDataChange={handleTemplateDataChange}
                   />
                 )}
+                {isFreeformTemplate && (
+                  <FreeformDocumentEditor
+                    blocks={parseFreeformBlocks(templateData.freeformBlocks)}
+                    selectedId={freeformSelectedId}
+                    paperSize={templateData.paperSize}
+                    onSelect={setFreeformSelectedId}
+                    onChange={(blocks) =>
+                      handleTemplateDataChange('freeformBlocks', JSON.stringify(blocks))
+                    }
+                  />
+                )}
                 {isPaymentGuideTemplate && (
                   <PaymentGuideLivePreview
                     templateData={templateData}
@@ -806,15 +843,68 @@ export function DocumentForm({
           )}
 
           <div className="min-w-0 space-y-6 order-last xl:order-none">
-        {/* 基本情報 */}
-        <section className="bg-white rounded-elegant-lg border border-gin p-4 md:p-6">
-          <header className="mb-4 flex items-start gap-2 pl-3 border-l-4 border-l-matsu">
-            <FileText className="mt-0.5 h-5 w-5 text-matsu" />
-            <h3 className="font-mincho text-base md:text-lg font-semibold text-sumi">
+        {(showInvoiceFields || isPaymentGuideTemplate || isFreeformTemplate) && (
+          <div className="rounded-elegant-lg border border-gin bg-white p-4">
+            <h4 className="font-mincho text-base font-semibold text-sumi">紙の大きさ</h4>
+            <p className="mt-1 text-xs text-hai">
+              画面の紙と、PDFにしたときの紙の大きさが変わります。最初はA4（普通の紙）です。小さい紙を選ぶと、文字を縮めて1枚に収めます。
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {PAPER_SIZES.map((size) => {
+                const selected = paperSizeOf(templateData.paperSize).id === size.id;
+                return (
+                  <Button
+                    key={size.id}
+                    type="button"
+                    variant={selected ? 'default' : 'outline'}
+                    size="sm"
+                    className={selected ? 'bg-matsu text-white hover:bg-matsu-dark' : ''}
+                    onClick={() =>
+                      handleTemplateDataChange('paperSize', size.id as PaperSizeId)
+                    }
+                  >
+                    {size.label}
+                    <span className="ml-1 text-[10px] opacity-80">{size.hint}</span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {(showInvoiceFields || isPaymentGuideTemplate) && (
+          <DocumentTextStyleToolbar
+            value={textStylePreset}
+            onChange={handleTextStyleChange}
+          />
+        )}
+        {isFreeformTemplate && (
+          <FreeformSideTools
+            blocks={parseFreeformBlocks(templateData.freeformBlocks)}
+            selectedId={freeformSelectedId}
+            templateName={templateName}
+            onTemplateName={setTemplateName}
+            onSelect={setFreeformSelectedId}
+            onChange={(blocks) =>
+              handleTemplateDataChange('freeformBlocks', JSON.stringify(blocks))
+            }
+          />
+        )}
+        {showPostcardFields && (
+          <PostcardPieceTools
+            templateData={templateData}
+            selectedId={postcardSelectedId}
+            onTemplateDataChange={handleTemplateDataChange}
+          />
+        )}
+        <details className="group rounded-elegant-lg border border-gin bg-white">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 md:px-6 [&::-webkit-details-marker]:hidden">
+            <span className="border-l-4 border-l-matsu pl-3 font-mincho text-base font-semibold text-sumi">
               基本情報
-            </h3>
-          </header>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            </span>
+            <span className="text-xs text-hai group-open:hidden">開く</span>
+            <span className="hidden text-xs text-hai group-open:inline">閉じる</span>
+          </summary>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 pb-4 md:px-6 md:pb-6">
             <div className="space-y-2">
               <Label htmlFor="name">書類名 *</Label>
               <Input
@@ -874,7 +964,7 @@ export function DocumentForm({
               />
             </div>
           </div>
-        </section>
+        </details>
 
         {/* ===== 護持費のお知らせ（旧「請求書」テンプレート） ===== */}
         {showInvoiceFields && (
@@ -1320,7 +1410,7 @@ export function DocumentForm({
                 <Input
                   value={templateData.recipientPostalCode || ''}
                   onChange={(e) => handleEnvelopePostalCodeChange(e.target.value)}
-                  placeholder="807-0081"
+                  placeholder="123-4567"
                 />
                 <p className="text-xs text-hai">
                   郵便番号は右上の枠に1桁ずつ入ります。ハイフンは印字しません。
@@ -1338,7 +1428,7 @@ export function DocumentForm({
                       onChange={(e) =>
                         handleTemplateDataChange('recipientName', e.target.value)
                       }
-                      placeholder="小峰 太郎 様"
+                      placeholder="コミネ太郎 様"
                       aria-label="宛名の入力"
                       className="h-64 w-16 resize-none rounded-md border border-gin px-1 py-2 text-center font-mincho text-sumi outline-none focus:ring-2 focus:ring-matsu"
                       style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}
@@ -1351,7 +1441,7 @@ export function DocumentForm({
                       onChange={(e) =>
                         handleTemplateDataChange('recipientAddress2', e.target.value)
                       }
-                      placeholder="番地・建物名"
+                      placeholder="見本1丁目2番3号"
                       aria-label="宛先住所2列目の入力"
                       className="h-64 w-14 resize-none rounded-md border border-gin px-1 py-2 font-mincho text-sumi outline-none focus:ring-2 focus:ring-matsu"
                       style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}
@@ -1364,7 +1454,7 @@ export function DocumentForm({
                       onChange={(e) =>
                         handleTemplateDataChange('recipientAddress', e.target.value)
                       }
-                      placeholder="福岡県北九州市"
+                      placeholder="見本県見本市見本区"
                       aria-label="宛先住所の入力"
                       className="h-64 w-14 resize-none rounded-md border border-gin px-1 py-2 font-mincho text-sumi outline-none focus:ring-2 focus:ring-matsu"
                       style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}
@@ -1376,88 +1466,44 @@ export function DocumentForm({
           </section>
         )}
 
-        {/* ===== 自由テキスト編集エリア ===== */}
-        <section className="bg-white rounded-elegant-lg border border-gin p-4 md:p-6">
-          <header className="mb-3 flex items-start gap-2 pl-3 border-l-4 border-l-sumi">
-            <div>
-              <h3 className="font-mincho text-base md:text-lg font-semibold text-sumi">
-                自由記入欄
-              </h3>
-              <p className="text-xs text-hai mt-0.5">
-                手作業で追記・修正したい内容を自由に入力できます。書類に添付メモとして保存されます。
-              </p>
-            </div>
-          </header>
-          <textarea
-            value={freeText}
-            onChange={(e) => setFreeText(e.target.value)}
-            placeholder="追加の備考、修正内容、特記事項などを自由に入力..."
-            className="w-full min-h-[150px] px-3 py-2 border border-gin rounded-md focus:outline-none focus:ring-2 focus:ring-matsu text-sm font-mono leading-relaxed"
-          />
-        </section>
-
-        {/* 備考 */}
-        <section className="bg-white rounded-elegant-lg border border-gin p-4 md:p-6">
-          <header className="mb-3 flex items-start gap-2 pl-3 border-l-4 border-l-sumi">
-            <h3 className="font-mincho text-base md:text-lg font-semibold text-sumi">
-              備考
-            </h3>
-          </header>
-          <textarea
-            value={formData.notes}
-            onChange={(e) => handleInputChange('notes', e.target.value)}
-            placeholder="管理用メモ（書類には出力されません）"
-            className="w-full min-h-[80px] px-3 py-2 border border-gin rounded-md focus:outline-none focus:ring-2 focus:ring-matsu text-sm"
-          />
-        </section>
-
-        {/* ファイルアップロード */}
-        <section className="bg-white rounded-elegant-lg border border-gin p-4 md:p-6">
-          <header className="mb-4 flex items-start gap-2 pl-3 border-l-4 border-l-matsu">
-            <Upload className="mt-0.5 h-5 w-5 text-matsu" />
-            <h3 className="font-mincho text-base md:text-lg font-semibold text-sumi">
-              ファイル添付
-            </h3>
-          </header>
-          <div className="space-y-4">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
-              className="hidden"
-            />
-            <div className="flex items-center gap-4 flex-wrap">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                ファイルを選択
-              </Button>
-              {selectedFile && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-kinari-50 rounded-md border border-gin">
-                  <FileText className="h-4 w-4 text-matsu" />
-                  <span className="text-sm text-sumi">{selectedFile.name}</span>
-                  <span className="text-xs text-hai">
-                    ({(selectedFile.size / 1024).toFixed(1)} KB)
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedFile(null)}
-                    className="text-hai hover:text-sumi"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-hai">
-              対応形式: PDF, Word, Excel, 画像 (最大10MB)
+        <details className="group rounded-elegant-lg border border-gin bg-white">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 md:px-6 [&::-webkit-details-marker]:hidden">
+            <span className="border-l-4 border-l-sumi pl-3 font-mincho text-base font-semibold text-sumi">
+              自由記入欄
+            </span>
+            <span className="text-xs text-hai group-open:hidden">開く</span>
+            <span className="hidden text-xs text-hai group-open:inline">閉じる</span>
+          </summary>
+          <div className="px-4 pb-4 md:px-6 md:pb-6">
+            <p className="mb-3 text-xs text-hai">
+              紙には刷られないメモです。必要なときだけ開いて書いてください。
             </p>
+            <textarea
+              value={freeText}
+              onChange={(e) => setFreeText(e.target.value)}
+              placeholder="追加の備考、修正内容、特記事項などを自由に入力..."
+              className="w-full min-h-[150px] px-3 py-2 border border-gin rounded-md focus:outline-none focus:ring-2 focus:ring-matsu text-sm font-mono leading-relaxed"
+            />
           </div>
-        </section>
+        </details>
+
+        <details className="group rounded-elegant-lg border border-gin bg-white">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 md:px-6 [&::-webkit-details-marker]:hidden">
+            <span className="border-l-4 border-l-sumi pl-3 font-mincho text-base font-semibold text-sumi">
+              備考
+            </span>
+            <span className="text-xs text-hai group-open:hidden">開く</span>
+            <span className="hidden text-xs text-hai group-open:inline">閉じる</span>
+          </summary>
+          <div className="px-4 pb-4 md:px-6 md:pb-6">
+            <textarea
+              value={formData.notes}
+              onChange={(e) => handleInputChange('notes', e.target.value)}
+              placeholder="管理用メモ（書類には出力されません）"
+              className="w-full min-h-[80px] px-3 py-2 border border-gin rounded-md focus:outline-none focus:ring-2 focus:ring-matsu text-sm"
+            />
+          </div>
+        </details>
 
         {/* エラー */}
         {mutationError && (
@@ -1488,5 +1534,234 @@ export function DocumentForm({
         </div>
       </form>
     </div>
+  );
+}
+
+function FreeformSideTools({
+  blocks,
+  selectedId,
+  templateName,
+  onTemplateName,
+  onSelect,
+  onChange,
+}: {
+  blocks: FreeformBlock[];
+  selectedId: string | null;
+  templateName: string;
+  onTemplateName: (value: string) => void;
+  onSelect: (id: string | null) => void;
+  onChange: (blocks: FreeformBlock[]) => void;
+}) {
+  const selected = blocks.find((block) => block.id === selectedId) ?? null;
+
+  const addBlock = () => {
+    const block: FreeformBlock = {
+      id: `block-${Date.now()}`,
+      text: '',
+      xMm: 20,
+      yMm: Math.min(20 + blocks.length * 18, 240),
+      widthMm: 80,
+      heightMm: 28,
+      font: 'mincho',
+      sizePt: 14,
+      weight: 'normal',
+      direction: 'horizontal',
+    };
+    onChange([...blocks, block]);
+    onSelect(block.id);
+  };
+
+  const patch = (next: Partial<FreeformBlock>) => {
+    if (!selected) return;
+    onChange(blocks.map((block) => (block.id === selected.id ? { ...block, ...next } : block)));
+  };
+
+  return (
+    <section className="bg-white rounded-elegant-lg border border-gin p-4 md:p-6 space-y-4">
+      <header className="pl-3 border-l-4 border-l-sumi">
+        <h3 className="font-mincho text-base md:text-lg font-semibold text-sumi">
+          文字
+        </h3>
+        <p className="text-xs text-hai mt-0.5">
+          左の紙に文字を足して、上の帯をつかむと位置を動かせます。
+        </p>
+      </header>
+      <Button type="button" variant="outline" onClick={addBlock}>
+        文字を足す
+      </Button>
+      {selected && (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-sm text-sumi">
+            書体
+            <select
+              className="mt-1 w-full rounded-md border border-gin px-2 py-2"
+              value={selected.font}
+              onChange={(event) =>
+                patch({ font: event.target.value === 'gothic' ? 'gothic' : 'mincho' })
+              }
+            >
+              <option value="mincho">明朝（筆のような文字）</option>
+              <option value="gothic">ゴシック（角ばった文字）</option>
+            </select>
+          </label>
+          <label className="text-sm text-sumi">
+            大きさ
+            <input
+              type="number"
+              min={8}
+              max={36}
+              className="mt-1 w-full rounded-md border border-gin px-2 py-2"
+              value={selected.sizePt}
+              onChange={(event) => patch({ sizePt: Number(event.target.value) || 14 })}
+            />
+          </label>
+          <label className="text-sm text-sumi">
+            太さ
+            <select
+              className="mt-1 w-full rounded-md border border-gin px-2 py-2"
+              value={selected.weight}
+              onChange={(event) =>
+                patch({ weight: event.target.value === 'bold' ? 'bold' : 'normal' })
+              }
+            >
+              <option value="normal">ふつう</option>
+              <option value="bold">太い</option>
+            </select>
+          </label>
+          <label className="text-sm text-sumi">
+            向き
+            <select
+              className="mt-1 w-full rounded-md border border-gin px-2 py-2"
+              value={selected.direction}
+              onChange={(event) =>
+                patch({
+                  direction: event.target.value === 'vertical' ? 'vertical' : 'horizontal',
+                })
+              }
+            >
+              <option value="horizontal">横書き</option>
+              <option value="vertical">縦書き</option>
+            </select>
+          </label>
+          <Button
+            type="button"
+            variant="outline"
+            className="col-span-2 text-beni"
+            onClick={() => {
+              onChange(blocks.filter((block) => block.id !== selected.id));
+              onSelect(null);
+            }}
+          >
+            この文字を消す
+          </Button>
+        </div>
+      )}
+      <div className="space-y-2 border-t border-gin pt-4">
+        <Label>この形の名前</Label>
+        <Input
+          value={templateName}
+          onChange={(event) => onTemplateName(event.target.value)}
+          placeholder="例: お礼の手紙"
+          aria-label="テンプレートの名前"
+        />
+        <Button
+          type="button"
+          className="bg-matsu text-white hover:bg-matsu-dark"
+          onClick={() => {
+            saveFreeformTemplate(templateName, blocks);
+            toast.success('この形を保存しました。書類の一覧に戻ると「保存した形」からやり直せます。');
+          }}
+        >
+          この形をテンプレートにする
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function PostcardPieceTools({
+  templateData,
+  selectedId,
+  onTemplateDataChange,
+}: {
+  templateData: Record<string, string>;
+  selectedId: string | null;
+  onTemplateDataChange: (key: string, value: string) => void;
+}) {
+  const piece = selectedPostcardPiece(templateData, selectedId);
+  if (!piece) {
+    return (
+      <p className="text-sm text-hai">
+        左のはがきで直したい文字を押すと、ここで書体・大きさ・太さ・縦書きか横書きかを変えられます。上の細い帯をつかむと、その文字だけ動かせます。
+      </p>
+    );
+  }
+  const patch = (next: Parameters<typeof updatePostcardPiece>[2]) => {
+    onTemplateDataChange('postcardLayout', updatePostcardPiece(templateData, piece.id, next));
+  };
+  return (
+    <section className="bg-white rounded-elegant-lg border border-gin p-4 space-y-3">
+      <h3 className="font-mincho text-base font-semibold text-sumi">{piece.label}</h3>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="text-sm text-sumi">
+          書体
+          <select
+            className="mt-1 w-full rounded-md border border-gin px-2 py-2"
+            value={piece.font}
+            onChange={(event) => patch({ font: event.target.value === 'gothic' ? 'gothic' : 'mincho' })}
+          >
+            <option value="mincho">明朝（筆のような文字）</option>
+            <option value="gothic">ゴシック（角ばった文字）</option>
+          </select>
+        </label>
+        <label className="text-sm text-sumi">
+          大きさ
+          <input
+            type="number"
+            min={8}
+            max={36}
+            className="mt-1 w-full rounded-md border border-gin px-2 py-2"
+            value={piece.sizePt}
+            onChange={(event) => patch({ sizePt: Number(event.target.value) || 12 })}
+          />
+        </label>
+        <label className="text-sm text-sumi">
+          太さ
+          <select
+            className="mt-1 w-full rounded-md border border-gin px-2 py-2"
+            value={piece.weight}
+            onChange={(event) => patch({ weight: event.target.value === 'bold' ? 'bold' : 'normal' })}
+          >
+            <option value="normal">ふつう</option>
+            <option value="bold">太い</option>
+          </select>
+        </label>
+        <label className="text-sm text-sumi">
+          向き
+          <select
+            className="mt-1 w-full rounded-md border border-gin px-2 py-2"
+            value={piece.direction}
+            onChange={(event) =>
+              patch({ direction: event.target.value === 'vertical' ? 'vertical' : 'horizontal' })
+            }
+          >
+            <option value="vertical">縦書き</option>
+            <option value="horizontal">横書き</option>
+          </select>
+        </label>
+      </div>
+      {piece.id === 'recipientName' && (
+        <label className="flex items-center gap-2 text-sm text-sumi">
+          <input
+            type="checkbox"
+            checked={templateData.showHonorific !== '0'}
+            onChange={(event) =>
+              onTemplateDataChange('showHonorific', event.target.checked ? '1' : '0')
+            }
+          />
+          うしろに「様」をつける
+        </label>
+      )}
+    </section>
   );
 }
