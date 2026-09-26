@@ -64,6 +64,7 @@ export interface PlotSearchParams {
   graveKubun?: number;
   graveType?: number;
   occupancy?: 'in_use' | 'vacant' | 'all';
+  period?: string;
 }
 
 /**
@@ -657,6 +658,7 @@ export async function getPlots(
     graveKubun: params.graveKubun,
     graveType: params.graveType,
     occupancy: params.occupancy,
+    period: params.period,
   });
 
   if (!response.success) {

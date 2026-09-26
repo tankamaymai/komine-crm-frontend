@@ -24,6 +24,7 @@ import {
   getRowBgColor,
   getSearchHitReason,
   isVacantPlot,
+  plotPeriod,
 } from './utils';
 import { OCCUPANCY_BADGE_CLASS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_VARIANTS } from './constants';
 import { ColumnResizer } from './ColumnResizer';
@@ -57,7 +58,7 @@ const headBorder = 'border-r border-white/30';
 const headClass = 'relative px-2 py-3 text-left font-bold text-white whitespace-nowrap';
 
 function columnCount(showBuriedPersons: boolean): number {
-  return showBuriedPersons ? 13 : 12;
+  return showBuriedPersons ? 14 : 13;
 }
 
 function ManagementFeeCell({ plot }: { plot: PlotListItem }) {
@@ -116,9 +117,10 @@ export function PlotTable({
           className="w-full border-collapse table-fixed"
           style={tableStyle}
         >
-          {/* 利用 / エリア / 区画No / 取扱 / 契約者 / 住所 / 電話 / 備考(flex) / [埋葬者] / 入金 / 管理料 / 次請求 */}
+          {/* 利用 / 期 / エリア / 区画No / 取扱 / 契約者 / 住所 / 電話 / 備考(flex) / [埋葬者] / 入金 / 管理料 / 次請求 */}
           <colgroup>
             <col className="w-[64px]" />
+            <col className="w-[96px]" />
             <col className="w-[72px]" style={colStyle('areaName')} />
             <col className="w-[80px]" style={colStyle('plotNumber')} />
             <col className="w-[72px]" style={colStyle('agent')} />
@@ -138,6 +140,9 @@ export function PlotTable({
             <tr>
               <th className={cn(headClass, headBorder)}>
                 <span>利用</span>
+              </th>
+              <th className={cn(headClass, headBorder)}>
+                <span>期</span>
               </th>
               <th className={cn(headClass, headBorder)}>
                 <span>エリア</span>
@@ -311,6 +316,12 @@ export function PlotTable({
                           {occupancyLabel}
                         </span>
                       )}
+                    </td>
+                    <td
+                      className={cn('px-2 py-3 text-hai truncate', cellBorder)}
+                      title={isPlotLead ? plotPeriod(plot) || undefined : undefined}
+                    >
+                      {isPlotLead ? plotPeriod(plot) || '-' : ''}
                     </td>
                     <td
                       className={cellWrapClass('areaName', cn('px-2 py-3 text-hai', cellBorder))}

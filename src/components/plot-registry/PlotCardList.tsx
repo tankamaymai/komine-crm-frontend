@@ -4,7 +4,7 @@ import { cn, truncateAddressToCity } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { OCCUPANCY_BADGE_CLASS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_VARIANTS } from './constants';
-import { formatManagementFeeTerm, getOccupancyLabel, getRowBgColor, getSearchHitReason, isVacantPlot } from './utils';
+import { formatManagementFeeTerm, getOccupancyLabel, getRowBgColor, getSearchHitReason, isVacantPlot, plotPeriod } from './utils';
 import { LegacyAwareValue } from '@/components/legacy-aware-value';
 
 interface PlotCardListProps {
@@ -77,6 +77,9 @@ export function PlotCardList({
                       >
                         {occupancyLabel}
                       </span>
+                      {plotPeriod(plot) && (
+                        <span className="text-xs text-hai shrink-0">{plotPeriod(plot)}</span>
+                      )}
                       {plot.areaName && (
                         // エリア（区画名）。legacy-* / "1-29" 等の未正規化値は「整備中」ミュート表示 #166
                         <span className="text-xs truncate">
