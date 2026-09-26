@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { PaymentStatus, PhysicalPlotStatus, type PlotListItem } from '@komine/types';
+import { type PlotListItem } from '@komine/types';
 import { getPlots, getGraveClassifications } from '@/lib/api/plots';
 import type { PlotSearchParams } from '@/lib/api/plots';
 import type { GraveClassificationsResponse } from '@komine/types';
@@ -59,8 +59,7 @@ export default function PlotRegistry({
 
   // フィルタ
   const [filterOccupancy, setFilterOccupancy] = useState<OccupancyFilter>('in_use');
-  const [filterStatus, setFilterStatus] = useState<PhysicalPlotStatus | undefined>(undefined);
-  const [filterPaymentStatus, setFilterPaymentStatus] = useState<PaymentStatus | undefined>(undefined);
+  const [filterPeriod, setFilterPeriod] = useState('');
   const [filterAreaName, setFilterAreaName] = useState('');
   const [filterGraveType, setFilterGraveType] = useState<number | undefined>(undefined);
   const [graveClassifications, setGraveClassifications] = useState<GraveClassificationsResponse>({
@@ -188,11 +187,8 @@ export default function PlotRegistry({
       if (filterOccupancy !== 'in_use') {
         params.occupancy = filterOccupancy;
       }
-      if (filterStatus) {
-        params.status = filterStatus;
-      }
-      if (filterPaymentStatus) {
-        params.paymentStatus = filterPaymentStatus;
+      if (filterPeriod) {
+        params.period = filterPeriod;
       }
       if (filterAreaName.trim()) {
         params.areaName = filterAreaName.trim();
@@ -227,7 +223,7 @@ export default function PlotRegistry({
         setIsLoading(false);
       }
     }
-  }, [currentPage, itemsPerPage, searchQuery, activeTab, sortKey, sortOrder, filterOccupancy, filterStatus, filterPaymentStatus, filterAreaName, filterGraveType]);
+  }, [currentPage, itemsPerPage, searchQuery, activeTab, sortKey, sortOrder, filterOccupancy, filterPeriod, filterAreaName, filterGraveType]);
 
   useEffect(() => {
     fetchPlots();
@@ -286,15 +282,13 @@ export default function PlotRegistry({
   // フィルタ変更ハンドラ
   const hasActiveFilters =
     filterOccupancy !== 'in_use' ||
-    filterStatus !== undefined ||
-    filterPaymentStatus !== undefined ||
+    filterPeriod !== '' ||
     filterAreaName.trim() !== '' ||
     filterGraveType !== undefined;
 
   const activeFilterCount = [
     filterOccupancy !== 'in_use' ? filterOccupancy : undefined,
-    filterStatus,
-    filterPaymentStatus,
+    filterPeriod || undefined,
     filterAreaName.trim() || undefined,
     filterGraveType,
   ].filter((v) => v !== undefined && v !== '').length;
@@ -304,13 +298,8 @@ export default function PlotRegistry({
     setCurrentPage(1);
   };
 
-  const handleFilterStatusChange = (value: string) => {
-    setFilterStatus(value === 'all' ? undefined : value as PhysicalPlotStatus);
-    setCurrentPage(1);
-  };
-
-  const handleFilterPaymentStatusChange = (value: string) => {
-    setFilterPaymentStatus(value === 'all' ? undefined : value as PaymentStatus);
+  const handleFilterPeriodChange = (value: string) => {
+    setFilterPeriod(value === 'all' ? '' : value);
     setCurrentPage(1);
   };
 
@@ -326,8 +315,7 @@ export default function PlotRegistry({
 
   const handleClearFilters = () => {
     setFilterOccupancy('in_use');
-    setFilterStatus(undefined);
-    setFilterPaymentStatus(undefined);
+    setFilterPeriod('');
     setFilterAreaName('');
     setFilterGraveType(undefined);
     setCurrentPage(1);
@@ -450,10 +438,8 @@ export default function PlotRegistry({
           <PlotFilters
             filterOccupancy={filterOccupancy}
             onFilterOccupancyChange={handleFilterOccupancyChange}
-            filterStatus={filterStatus}
-            onFilterStatusChange={handleFilterStatusChange}
-            filterPaymentStatus={filterPaymentStatus}
-            onFilterPaymentStatusChange={handleFilterPaymentStatusChange}
+            filterPeriod={filterPeriod}
+            onFilterPeriodChange={handleFilterPeriodChange}
             filterAreaName={filterAreaName}
             onFilterAreaNameChange={handleFilterAreaNameChange}
             filterGraveType={filterGraveType}

@@ -1,18 +1,15 @@
-import { PaymentStatus, PhysicalPlotStatus } from '@komine/types';
 import type { GraveClassificationsResponse } from '@komine/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { isLegacyAreaName } from '@/lib/legacy-plot-display';
-import { PAYMENT_STATUS_LABELS, PLOT_STATUS_LABELS } from './constants';
+import { PERIOD_NAMES } from '@/lib/section-period';
 
 export type OccupancyFilter = 'in_use' | 'vacant' | 'all';
 
 interface PlotFiltersProps {
   filterOccupancy: OccupancyFilter;
   onFilterOccupancyChange: (value: string) => void;
-  filterStatus: PhysicalPlotStatus | undefined;
-  onFilterStatusChange: (value: string) => void;
-  filterPaymentStatus: PaymentStatus | undefined;
-  onFilterPaymentStatusChange: (value: string) => void;
+  filterPeriod: string;
+  onFilterPeriodChange: (value: string) => void;
   filterAreaName: string;
   onFilterAreaNameChange: (value: string) => void;
   filterGraveType: number | undefined;
@@ -26,10 +23,8 @@ interface PlotFiltersProps {
 export function PlotFilters({
   filterOccupancy,
   onFilterOccupancyChange,
-  filterStatus,
-  onFilterStatusChange,
-  filterPaymentStatus,
-  onFilterPaymentStatusChange,
+  filterPeriod,
+  onFilterPeriodChange,
   filterAreaName,
   onFilterAreaNameChange,
   filterGraveType,
@@ -60,30 +55,17 @@ export function PlotFilters({
         </Select>
       </div>
       <div className="flex items-center gap-1 sm:gap-2">
-        <span className="text-xs sm:text-sm text-hai whitespace-nowrap">区画:</span>
-        <Select value={filterStatus || 'all'} onValueChange={onFilterStatusChange}>
-          <SelectTrigger className="w-full sm:w-32 h-9 text-sm">
+        <span className="text-xs sm:text-sm text-hai whitespace-nowrap">期:</span>
+        <Select value={filterPeriod || 'all'} onValueChange={onFilterPeriodChange}>
+          <SelectTrigger className="w-full sm:w-40 h-9 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全て</SelectItem>
-            {Object.entries(PLOT_STATUS_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>{label}</SelectItem>
+            {PERIOD_NAMES.map((name) => (
+              <SelectItem key={name} value={name}>{name}</SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex items-center gap-1 sm:gap-2">
-        <span className="text-xs sm:text-sm text-hai whitespace-nowrap">入金:</span>
-        <Select value={filterPaymentStatus || 'all'} onValueChange={onFilterPaymentStatusChange}>
-          <SelectTrigger className="w-full sm:w-32 h-9 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全て</SelectItem>
-            {Object.entries(PAYMENT_STATUS_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>{label}</SelectItem>
-            ))}
+            <SelectItem value="その他">その他</SelectItem>
           </SelectContent>
         </Select>
       </div>

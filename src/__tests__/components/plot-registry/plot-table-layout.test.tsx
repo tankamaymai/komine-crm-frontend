@@ -114,6 +114,8 @@ describe('台帳一覧の列構成（先方指摘）', () => {
 
     const headers = screen.getAllByRole('columnheader').map((el) => el.textContent);
     expect(headers[0]).toContain('利用');
+    expect(headers[1]).toContain('期');
+    expect(headers[2]).toContain('エリア');
 
     const inUseRow = screen.getByText('山田太郎').closest('tr');
     const vacantRow = screen.getByRole('link', { name: 'A-2 の詳細を開く' });

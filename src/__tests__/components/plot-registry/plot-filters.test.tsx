@@ -26,10 +26,8 @@ function renderFilters(
     <PlotFilters
       filterOccupancy="in_use"
       onFilterOccupancyChange={noop}
-      filterStatus={undefined}
-      onFilterStatusChange={noop}
-      filterPaymentStatus={undefined}
-      onFilterPaymentStatusChange={noop}
+      filterPeriod=""
+      onFilterPeriodChange={noop}
       filterAreaName={filterAreaName}
       onFilterAreaNameChange={noop}
       filterGraveType={undefined}
@@ -80,5 +78,19 @@ describe('台帳フィルターのエリア選択', () => {
     expect(screen.getByTestId('select-item-in_use')).toHaveTextContent('利用中');
     expect(screen.getByTestId('select-item-vacant')).toHaveTextContent('空き区画');
     expect(screen.getAllByText('全て').length).toBeGreaterThan(0);
+  });
+
+  it('区画と入金の絞り込みは出さず、期で選べる', () => {
+    renderFilters(['A']);
+
+    expect(screen.queryByText('区画:')).not.toBeInTheDocument();
+    expect(screen.queryByText('入金:')).not.toBeInTheDocument();
+    expect(screen.getByText('期:')).toBeInTheDocument();
+    expect(screen.getByTestId('select-item-第1期')).toHaveTextContent('第1期');
+    expect(screen.getByTestId('select-item-第2期')).toHaveTextContent('第2期');
+    expect(screen.getByTestId('select-item-第3期')).toHaveTextContent('第3期');
+    expect(screen.getByTestId('select-item-第3期樹林部')).toHaveTextContent('第3期樹林部');
+    expect(screen.getByTestId('select-item-第4期')).toHaveTextContent('第4期');
+    expect(screen.getByTestId('select-item-その他')).toHaveTextContent('その他');
   });
 });

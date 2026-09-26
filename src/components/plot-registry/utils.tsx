@@ -19,6 +19,12 @@ export function loadSearchHistory(): string[] {
   }
 }
 
+/** 一覧APIが返す期。共有の型定義に届く前でも、画面側で読めるようにする。 */
+export function plotPeriod(plot: PlotListItem): string {
+  const value = (plot as PlotListItem & { period?: string }).period;
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 export function saveSearchHistory(history: string[]) {
   if (typeof window === 'undefined') return;
   try {
