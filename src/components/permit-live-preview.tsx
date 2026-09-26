@@ -5,11 +5,12 @@
  * `pages` で渡されたページ定義（@komine/types と同一）に沿って背景画像と入力欄を表示する。
  */
 
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { PermitField, PermitPage } from '@komine/types';
 import { PERMIT_CERTIFICATE_PAGES } from '@komine/types';
+import { FitZoomFrame } from './document-preview-zoom';
 
 interface PermitLivePreviewProps {
   /** 省略時は許可証（1ページ） */
@@ -178,6 +179,7 @@ function PermitPagePreview({
           {page.widthPt.toFixed(0)} × {page.heightPt.toFixed(0)} pt
         </span>
       </div>
+      <FitZoomFrame>
       <div
         className="relative mx-auto bg-white border border-gin shadow-elegant-sm rounded overflow-hidden"
         style={{ width: `${renderWidth}px`, height: `${renderHeight}px` }}
@@ -219,6 +221,7 @@ function PermitPagePreview({
           </div>
         )}
       </div>
+      </FitZoomFrame>
     </div>
   );
 }
@@ -268,7 +271,7 @@ export function PermitLivePreview({
         背景はテンプレート画像です。入力欄の位置に PDF 出力でも文字が印字されます。
       </p>
 
-      <div className="rounded-lg border border-gin bg-shiro p-3 max-h-[min(82vh,60rem)] overflow-auto">
+      <div className="rounded-lg border border-gin bg-shiro p-3">
         {activePage && (
           <PermitPagePreview
             page={activePage}

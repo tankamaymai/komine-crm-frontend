@@ -11,6 +11,10 @@ import {
   Files,
   LayoutTemplate,
 } from 'lucide-react';
+import {
+  listFreeformTemplates,
+  type SavedFreeformTemplate,
+} from '@/lib/freeform-templates';
 
 export type TemplateId =
   | 'invoice'
@@ -94,7 +98,15 @@ const TEMPLATES: TemplateOption[] = [
     theme: 'ai',
     hasTemplate: true,
   },
-  // はがき・契約書は業務上不要のため新規作成の選択肢から外す（既存データの閲覧は維持）
+  {
+    id: 'postcard',
+    label: 'はがき',
+    description:
+      '宛先と文章のはがきを作れます。文字の見た目は右側で変えられます。',
+    icon: <File className="h-7 w-7" />,
+    theme: 'matsu',
+    hasTemplate: true,
+  },
   {
     id: 'permit',
     label: '許可証',
@@ -134,7 +146,8 @@ const TEMPLATES: TemplateOption[] = [
   {
     id: 'other',
     label: 'その他',
-    description: '上記に当てはまらないその他の書類を作成します。自由に入力できます。',
+    description:
+      '白紙に文字を置いて、自由な書類を作れます。作った形はテンプレートとして残せます。',
     icon: <File className="h-7 w-7" />,
     theme: 'sumi',
     hasTemplate: false,
@@ -142,7 +155,7 @@ const TEMPLATES: TemplateOption[] = [
 ];
 
 interface DocumentTemplateGalleryProps {
-  onSelectTemplate: (templateId: TemplateId) => void;
+  onSelectTemplate: (templateId: TemplateId, saved?: SavedFreeformTemplate) => void;
   onViewHistory: () => void;
 }
 
@@ -212,6 +225,31 @@ export function DocumentTemplateGallery({
           );
         })}
       </div>
+      <SavedShapes onSelect={(saved) => onSelectTemplate('other', saved)} />
     </div>
+  );
+}
+
+function SavedShapes({ onSelect }: { onSelect: (saved: SavedFreeformTemplate) => void }) {
+  const saved = listFreeformTemplates();
+  if (saved.length === 0) return null;
+  return (
+    <section className="space-y-3">
+      <h3 className="font-mincho text-lg font-semibold text-sumi">保存した形</h3>
+      <p className="text-xs text-hai">前に作ったその他の書類の形から、新しい書類を作れます。</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {saved.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelect(item)}
+            className="rounded-elegant-lg border border-gin bg-white p-4 text-left hover:border-matsu/50"
+          >
+            <span className="font-medium text-sumi">{item.name}</span>
+            <span className="mt-1 block text-xs text-hai">この形で作る</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

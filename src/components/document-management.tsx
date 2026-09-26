@@ -8,6 +8,7 @@ import {
 import { DocumentListView } from './document-list-view';
 import { DocumentDetailView } from './document-detail-view';
 import { DocumentForm } from './document-form';
+import type { SavedFreeformTemplate } from '@/lib/freeform-templates';
 import { useDocumentMutations, DocumentDetail } from '@/hooks/useDocuments';
 import { printSavedPermitText } from '@/lib/api/documents';
 import { toast } from 'sonner';
@@ -54,6 +55,7 @@ export function DocumentManagement({
   );
   const [selectedTemplateId, setSelectedTemplateId] =
     useState<TemplateId | null>(null);
+  const [savedFreeform, setSavedFreeform] = useState<SavedFreeformTemplate | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
 
@@ -70,6 +72,7 @@ export function DocumentManagement({
     setViewMode('templates');
     setSelectedDocumentId(null);
     setSelectedTemplateId(null);
+    setSavedFreeform(null);
   }, []);
 
   const handleBackToList = useCallback(() => {
@@ -81,10 +84,14 @@ export function DocumentManagement({
     setViewMode('list');
   }, []);
 
-  const handleSelectTemplate = useCallback((templateId: TemplateId) => {
-    setSelectedTemplateId(templateId);
-    setViewMode('create');
-  }, []);
+  const handleSelectTemplate = useCallback(
+    (templateId: TemplateId, saved?: SavedFreeformTemplate) => {
+      setSelectedTemplateId(templateId);
+      setSavedFreeform(saved ?? null);
+      setViewMode('create');
+    },
+    []
+  );
 
   const handleCreateNew = useCallback(() => {
     setSelectedTemplateId(null);
@@ -179,7 +186,7 @@ export function DocumentManagement({
         return '書類の詳細を表示';
       case 'create':
         return selectedTemplateId
-          ? `${TEMPLATE_LABELS[selectedTemplateId]}を作成`
+          ? `${savedFreeform?.name || TEMPLATE_LABELS[selectedTemplateId]}を作成`
           : '新規書類の作成';
       case 'edit':
         return '書類の編集';
@@ -255,6 +262,7 @@ export function DocumentManagement({
             <DocumentForm
               customerId={customerId}
               templateId={selectedTemplateId || undefined}
+              savedFreeform={savedFreeform}
               plotDetail={plotDetail}
               onBack={formOnBack}
               onSaved={handleSaved}
