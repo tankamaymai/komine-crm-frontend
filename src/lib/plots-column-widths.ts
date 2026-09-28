@@ -17,6 +17,7 @@ export type ResizableColumnKey =
   | 'address'
   | 'phone'
   | 'agent'
+  | 'baseName'
   | 'permitNumber'
   | 'notes'
   | 'buriedPersons';
@@ -32,6 +33,7 @@ export const COLUMN_DEFAULT_WIDTHS: Record<ResizableColumnKey, number | null> = 
   address: 90,
   phone: 100,
   agent: 72,
+  baseName: 120,
   permitNumber: 96,
   notes: null,
   buriedPersons: 90,

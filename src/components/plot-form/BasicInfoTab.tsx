@@ -19,7 +19,8 @@ export function BasicInfoTab({
   viewMode = false,
   masterData,
   isEditing = false,
-}: PlotTabBaseProps) {
+  legacyBaseName,
+}: PlotTabBaseProps & { legacyBaseName?: string | null }) {
   // マスタデータから期→区画名のマッピングを構築
   const { periods, sectionsByPeriod } = useMemo(() => {
     const items = masterData?.sectionNames || [];
@@ -280,7 +281,13 @@ export function BasicInfoTab({
             viewMode={viewMode}
             register={register('saleContract.agentName')}
             error={errors.saleContract?.agentName?.message}
-            placeholder="販売代理店名"
+            placeholder="小嶺、はせがわ、晃 など"
+          />
+
+          <ViewModeField
+            label="基地"
+            viewMode
+            value={legacyBaseName || ''}
           />
 
           <div className="col-span-3">

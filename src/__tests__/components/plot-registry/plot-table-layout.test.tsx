@@ -46,17 +46,33 @@ function renderTable(plots: PlotListItem[]) {
 }
 
 describe('台帳一覧の列構成（先方指摘）', () => {
-  it('取扱は区画Noの直後・契約者の前に並ぶ', () => {
-    renderTable([makePlot()]);
+  it('取扱と基地を出し、管理料は契約者の左、入金は出さない', () => {
+    renderTable([
+      makePlot({
+        areaName: 'A',
+        displayNumber: '1、2、3',
+        agentName: '小嶺',
+        baseName: '自由',
+      } as Partial<PlotListItem>),
+    ]);
 
-    const headers = screen.getAllByRole('columnheader').map((el) => el.textContent);
-    const plotIndex = headers.findIndex((text) => text?.includes('区画No'));
-    const agentIndex = headers.findIndex((text) => text?.includes('取扱'));
-    const nameIndex = headers.findIndex((text) => text?.includes('契約者'));
+    const headers = screen.getAllByRole('columnheader').map((text) => text.textContent ?? '');
+    const plotIndex = headers.findIndex((text) => text.includes('区画'));
+    const agentIndex = headers.findIndex((text) => text.includes('取扱'));
+    const baseIndex = headers.findIndex((text) => text.includes('基地'));
+    const feeIndex = headers.findIndex((text) => text.includes('管理料'));
+    const nameIndex = headers.findIndex((text) => text.includes('契約者'));
 
-    expect(plotIndex).toBeGreaterThanOrEqual(0);
     expect(agentIndex).toBe(plotIndex + 1);
-    expect(nameIndex).toBe(agentIndex + 1);
+    expect(baseIndex).toBe(agentIndex + 1);
+    expect(feeIndex).toBe(baseIndex + 1);
+    expect(nameIndex).toBe(feeIndex + 1);
+    const notesIndex = headers.findIndex((text) => text.includes('備考'));
+    expect(notesIndex).toBe(nameIndex + 1);
+    expect(screen.queryByRole('columnheader', { name: /入金/ })).not.toBeInTheDocument();
+    expect(screen.getByText('A-1,2,3')).toBeInTheDocument();
+    expect(screen.getByText('小嶺')).toBeInTheDocument();
+    expect(screen.getByText('自由')).toBeInTheDocument();
   });
 
   it('一覧の見出しに契約日と許可番号を出さない', () => {
@@ -93,10 +109,10 @@ describe('台帳一覧の列構成（先方指摘）', () => {
   });
 
   it('セルに縦の罫線クラスが付く', () => {
-    renderTable([makePlot({ agentName: '山田石材' })]);
+    renderTable([makePlot({ customerName: '山田太郎' })]);
 
-    const agentCell = screen.getByText('山田石材').closest('td');
-    expect(agentCell?.className).toContain('border-r');
+    const nameCell = screen.getByText('山田太郎').closest('td');
+    expect(nameCell?.className).toContain('border-r');
   });
 
   it('一番左に利用中／空きを出し、空きは行の色が変わる', () => {
@@ -115,10 +131,10 @@ describe('台帳一覧の列構成（先方指摘）', () => {
     const headers = screen.getAllByRole('columnheader').map((el) => el.textContent);
     expect(headers[0]).toContain('利用');
     expect(headers[1]).toContain('期');
-    expect(headers[2]).toContain('エリア');
+    expect(headers[2]).toContain('区画');
 
     const inUseRow = screen.getByText('山田太郎').closest('tr');
-    const vacantRow = screen.getByRole('link', { name: 'A-2 の詳細を開く' });
+    const vacantRow = screen.getByRole('link', { name: '第1期-A-2 の詳細を開く' });
 
     expect(inUseRow).toHaveTextContent('利用中');
     expect(vacantRow).toHaveTextContent('空き');
