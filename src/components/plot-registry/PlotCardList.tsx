@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react';
-import { PlotListItem, PaymentStatus } from '@komine/types';
+import { PlotListItem } from '@komine/types';
 import { cn, truncateAddressToCity } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { StatusBadge } from '@/components/ui/status-badge';
-import { OCCUPANCY_BADGE_CLASS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_VARIANTS } from './constants';
-import { formatManagementFeeTerm, getOccupancyLabel, getRowBgColor, getSearchHitReason, isVacantPlot, plotPeriod } from './utils';
-import { LegacyAwareValue } from '@/components/legacy-aware-value';
+import { OCCUPANCY_BADGE_CLASS } from './constants';
+import { formatManagementFeeTerm, formatAreaPlotCode, getOccupancyLabel, getRowBgColor, getSearchHitReason, isVacantPlot, plotBaseName, plotPeriod } from './utils';
 
 interface PlotCardListProps {
   plots: PlotListItem[];
@@ -47,10 +45,11 @@ export function PlotCardList({
         <ul className="space-y-2">
           {plots.map((plot, index) => {
             const absoluteIndex = startIndex + index;
-            const paymentStatus = plot.paymentStatus as PaymentStatus;
             const hitReason = getSearchHitReason(plot, searchQuery);
             const vacant = isVacantPlot(plot);
             const occupancyLabel = getOccupancyLabel(plot);
+            const plotCode = formatAreaPlotCode(plot.areaName, plot.displayNumber || plot.plotNumber);
+            const feeTerm = formatManagementFeeTerm(plot.managementFeeBillingType, plot.managementFeeBillingYears);
             return (
               <li key={plot.id}>
                 <button
@@ -80,38 +79,28 @@ export function PlotCardList({
                       {plotPeriod(plot) && (
                         <span className="text-xs text-hai shrink-0">{plotPeriod(plot)}</span>
                       )}
-                      {plot.areaName && (
-                        // エリア（区画名）。legacy-* / "1-29" 等の未正規化値は「整備中」ミュート表示 #166
-                        <span className="text-xs truncate">
-                          <LegacyAwareValue value={plot.areaName} kind="areaName" className="text-hai" />
-                        </span>
-                      )}
                       <span className="font-mono text-matsu font-semibold text-sm truncate">
-                        {/* displayNumber 優先・legacy-* 等は「整備中」ミュート表示 #158/#164 */}
-                        <LegacyAwareValue value={plot.displayNumber || plot.plotNumber} kind="plotNumber" />
+                        {plotCode || '-'}
                       </span>
                       {plot.agentName && (
                         <span className="text-xs text-hai truncate">{plot.agentName}</span>
                       )}
+                      {plotBaseName(plot) && (
+                        <span className="text-xs text-hai truncate">{plotBaseName(plot)}</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {paymentStatus && (
-                        <StatusBadge
-                          variant={PAYMENT_STATUS_VARIANTS[paymentStatus]}
-                          size="sm"
-                          withSymbol
-                        >
-                          {PAYMENT_STATUS_LABELS[paymentStatus]}
-                        </StatusBadge>
-                      )}
-                      {/* 詳細を開くシェブロン (#163) */}
                       <svg className="w-4 h-4 text-hai" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </div>
                   </div>
                   <div className="mt-1.5 flex items-baseline justify-between gap-2">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex items-baseline gap-2">
+                      {feeTerm && (
+                        <span className="text-xs text-hai whitespace-nowrap shrink-0">{feeTerm}</span>
+                      )}
+                      <div className="min-w-0">
                       <div className="font-medium text-sumi text-sm truncate">
                         {plot.customerName || '-'}
                       </div>
@@ -123,9 +112,7 @@ export function PlotCardList({
                           {hitReason}
                         </span>
                       )}
-                    </div>
-                    <div className="text-xs text-hai whitespace-nowrap">
-                      {formatManagementFeeTerm(plot.managementFeeBillingType, plot.managementFeeBillingYears) || ''}
+                      </div>
                     </div>
                   </div>
                   {plot.customerAddress && (

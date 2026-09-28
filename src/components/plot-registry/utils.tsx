@@ -25,6 +25,29 @@ export function plotPeriod(plot: PlotListItem): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+/** 一覧の基地。API が名前にして返す。 */
+export function plotBaseName(plot: { baseName?: string | null }): string {
+  const value = plot.baseName;
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * エリアと区画番号を1列にする。例: エリア A・区画 1、2、3 → 「A-1,2,3」。
+ * 区画番号がすでに「A-1」で始まっていれば、エリアは重ねない。
+ */
+export function formatAreaPlotCode(
+  areaName: string | null | undefined,
+  plotNumber: string | null | undefined,
+): string {
+  const area = (areaName ?? '').trim();
+  const number = (plotNumber ?? '').trim().replace(/、/g, ',').replace(/\s+/g, '');
+  if (!area && !number) return '';
+  if (!number) return area;
+  if (!area) return number;
+  if (number.startsWith(`${area}-`) || number.startsWith(`${area}－`)) return number;
+  return `${area}-${number}`;
+}
+
 export function saveSearchHistory(history: string[]) {
   if (typeof window === 'undefined') return;
   try {

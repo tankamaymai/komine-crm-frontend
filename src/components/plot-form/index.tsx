@@ -21,6 +21,7 @@ import { showWarning } from '@/lib/toast';
 
 import type { PlotFormProps, MasterData } from './types';
 import { BasicInfoTab } from './BasicInfoTab';
+import { resolveBaseName } from '@/lib/legacy-grave-labels';
 import { WorkBillingTab } from './WorkBillingTab';
 import { ContactsTab } from './ContactsTab';
 import { BurialInfoTab } from './BurialInfoTab';
@@ -402,7 +403,7 @@ export default function PlotForm({ plotDetail, onSave, isLoading }: PlotFormProp
         </TabsList>
 
         <TabsContent value="basic-info" className="space-y-6 mt-6">
-          <BasicInfoTab {...tabBaseProps} />
+          <BasicInfoTab {...tabBaseProps} legacyBaseName={resolveBaseName(plotDetail?.graveType)} />
         </TabsContent>
 
         <TabsContent value="fee-info" className="space-y-6 mt-6">

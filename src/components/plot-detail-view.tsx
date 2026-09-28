@@ -371,6 +371,8 @@ function BasicInfoTab({
               : '霊園の区画名（例: 凛A）。上の「期」はこの区画名から判定'
           }
         />
+        <InfoField label="取扱" value={plot.agentName} />
+        <InfoField label="基地" value={(plot as { baseName?: string | null }).baseName || null} />
         <InfoField
           label="物理区画面積 (㎡)"
           value={plot.physicalPlot.areaSqm?.toString()}
@@ -407,7 +409,6 @@ function BasicInfoTab({
         <InfoField label="受付番号" value={plot.acceptanceNumber} emptyKind={contractEmptyKind} />
         <InfoField label="受付日" value={formatDate(plot.acceptanceDate)} emptyKind={contractEmptyKind} />
         <InfoField label="担当者" value={plot.staffInCharge} />
-        <InfoField label="取扱" value={plot.agentName} />
         <InfoField label="許可日" value={formatDate(plot.permitDate)} emptyKind={contractEmptyKind} />
         <InfoField label="平成書番号" value={plot.permitNumber} emptyKind={contractEmptyKind} />
         <InfoField label="開始日" value={formatDate(plot.startDate)} emptyKind={contractEmptyKind} />

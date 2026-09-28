@@ -15,6 +15,7 @@ import {
   AddressType,
 } from '@komine/types';
 import type { CreatePlotRequest, UpdatePlotRequest, PlotDetailResponse } from '@komine/types';
+import { resolveHandlerName } from '@/lib/legacy-grave-labels';
 
 // ===== スキーマと型を @komine/types から再エクスポート =====
 export {
@@ -586,7 +587,7 @@ export function plotDetailToFormData(detail: PlotDetailResponse): PlotFormData {
       acceptanceNumber: detail.acceptanceNumber || '',
       acceptanceDate: toDateOnly(detail.acceptanceDate),
       staffInCharge: detail.staffInCharge || null,
-      agentName: detail.agentName || null,
+      agentName: resolveHandlerName(detail.agentName, detail.graveKind),
       permitDate: toDateOnly(detail.permitDate),
       permitNumber: detail.permitNumber || '',
       startDate: toDateOnly(detail.startDate),

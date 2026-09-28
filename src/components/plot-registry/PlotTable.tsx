@@ -1,8 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { PlotListItem, PaymentStatus } from '@komine/types';
+import { PlotListItem } from '@komine/types';
 import { cn, truncateAddressToCity } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { StatusBadge } from '@/components/ui/status-badge';
 import {
   isColumnExpanded,
   type ColumnWidths,
@@ -15,18 +14,19 @@ import {
   type PlotFontWeight,
 } from '@/lib/plots-display-settings';
 import { formatPhoneNumber, formatDate } from '@/lib/format';
-import { LegacyAwareValue } from '@/components/legacy-aware-value';
 import {
   buildPlotDisplayRows,
   formatManagementFeeTerm,
   formatMoneyString,
+  formatAreaPlotCode,
   getOccupancyLabel,
   getRowBgColor,
   getSearchHitReason,
   isVacantPlot,
+  plotBaseName,
   plotPeriod,
 } from './utils';
-import { OCCUPANCY_BADGE_CLASS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_VARIANTS } from './constants';
+import { OCCUPANCY_BADGE_CLASS } from './constants';
 import { ColumnResizer } from './ColumnResizer';
 import { SortIndicator } from './SortIndicator';
 import type { SortKey, SortOrder } from './types';
@@ -58,7 +58,7 @@ const headBorder = 'border-r border-white/30';
 const headClass = 'relative px-2 py-3 text-left font-bold text-white whitespace-nowrap';
 
 function columnCount(showBuriedPersons: boolean): number {
-  return showBuriedPersons ? 14 : 13;
+  return showBuriedPersons ? 13 : 12;
 }
 
 function ManagementFeeCell({ plot }: { plot: PlotListItem }) {
@@ -117,22 +117,21 @@ export function PlotTable({
           className="w-full border-collapse table-fixed"
           style={tableStyle}
         >
-          {/* 利用 / 期 / エリア / 区画No / 取扱 / 契約者 / 住所 / 電話 / 備考(flex) / [埋葬者] / 入金 / 管理料 / 次請求 */}
+          {/* 利用 / 期 / 区画 / 取扱 / 基地 / 管理料 / 契約者 / 備考(flex) / 住所 / 電話 / [埋葬者] / 次請求 */}
           <colgroup>
             <col className="w-[64px]" />
             <col className="w-[96px]" />
-            <col className="w-[72px]" style={colStyle('areaName')} />
-            <col className="w-[80px]" style={colStyle('plotNumber')} />
+            <col className="w-[120px]" style={colStyle('plotNumber')} />
             <col className="w-[72px]" style={colStyle('agent')} />
+            <col className="w-[100px]" />
+            <col className="hidden sm:table-column w-[88px]" />
             <col className="w-[110px]" style={colStyle('customerName')} />
+            <col className="hidden md:table-column" style={colStyle('notes')} />
             <col className="hidden md:table-column w-[90px]" style={colStyle('address')} />
             <col className="hidden lg:table-column w-[100px]" style={colStyle('phone')} />
-            <col className="hidden md:table-column" style={colStyle('notes')} />
             {showBuriedPersons && (
               <col className="hidden lg:table-column w-[90px]" style={colStyle('buriedPersons')} />
             )}
-            <col className="w-[60px]" />
-            <col className="hidden sm:table-column w-[88px]" />
             <col className="hidden md:table-column w-[82px]" />
             <col className="w-[40px]" />
           </colgroup>
@@ -144,10 +143,6 @@ export function PlotTable({
               <th className={cn(headClass, headBorder)}>
                 <span>期</span>
               </th>
-              <th className={cn(headClass, headBorder)}>
-                <span>エリア</span>
-                <ColumnResizer columnKey="areaName" onResizeStart={onColumnResizeStart} />
-              </th>
               <th
                 className={cn(
                   headClass,
@@ -156,9 +151,10 @@ export function PlotTable({
                   sortKey === 'plotNumber' && 'bg-matsu-dark'
                 )}
                 onClick={() => onSort('plotNumber')}
+                title="エリアと区画番号。例: A-1,2,3"
               >
                 <div className="flex items-center">
-                  <span>区画No</span>
+                  <span>区画</span>
                   <SortIndicator columnKey="plotNumber" sortKey={sortKey} sortOrder={sortOrder} />
                 </div>
                 <ColumnResizer columnKey="plotNumber" onResizeStart={onColumnResizeStart} />
@@ -166,6 +162,23 @@ export function PlotTable({
               <th className={cn(headClass, headBorder)}>
                 <span>取扱</span>
                 <ColumnResizer columnKey="agent" onResizeStart={onColumnResizeStart} />
+              </th>
+              <th className={cn(headClass, headBorder)}>
+                <span>基地</span>
+              </th>
+              <th
+                className={cn(
+                  'px-2 py-3 text-center font-bold text-white whitespace-nowrap cursor-pointer transition-colors duration-fast ease-elegant hidden sm:table-cell',
+                  'hover:bg-matsu-light',
+                  headBorder,
+                  sortKey === 'managementFee' && 'bg-matsu-dark'
+                )}
+                onClick={() => onSort('managementFee')}
+                title="旧システムの管理料区分（永代・10年など）と金額。名前の左に出します。クリックで並べ替え"
+              >
+                <div className="flex items-center justify-center">
+                  <span>管理料</span>
+                </div>
               </th>
               <th
                 className={cn(
@@ -183,6 +196,10 @@ export function PlotTable({
                 <ColumnResizer columnKey="customerName" onResizeStart={onColumnResizeStart} />
               </th>
               <th className={cn(headClass, 'hidden md:table-cell', headBorder)}>
+                <span>備考</span>
+                <ColumnResizer columnKey="notes" onResizeStart={onColumnResizeStart} />
+              </th>
+              <th className={cn(headClass, 'hidden md:table-cell', headBorder)}>
                 <span>住所</span>
                 <ColumnResizer columnKey="address" onResizeStart={onColumnResizeStart} />
               </th>
@@ -190,44 +207,12 @@ export function PlotTable({
                 <span>電話</span>
                 <ColumnResizer columnKey="phone" onResizeStart={onColumnResizeStart} />
               </th>
-              <th className={cn(headClass, 'hidden md:table-cell', headBorder)}>
-                <span>備考</span>
-                <ColumnResizer columnKey="notes" onResizeStart={onColumnResizeStart} />
-              </th>
               {showBuriedPersons && (
                 <th className={cn(headClass, 'hidden lg:table-cell', headBorder)}>
                   <span>埋葬者</span>
                   <ColumnResizer columnKey="buriedPersons" onResizeStart={onColumnResizeStart} />
                 </th>
               )}
-              <th
-                className={cn(
-                  'px-2 py-3 text-center font-bold text-white whitespace-nowrap cursor-pointer transition-colors duration-fast ease-elegant',
-                  'hover:bg-matsu-light',
-                  headBorder,
-                  sortKey === 'paymentStatus' && 'bg-matsu-dark'
-                )}
-                onClick={() => onSort('paymentStatus')}
-                title="使用料・管理料の入金状況（入金済・未入金・一部入金・滞納）。未入金は黄色、滞納は赤色の行で表示されます。クリックで並べ替え"
-              >
-                <div className="flex items-center justify-center">
-                  <span>入金</span>
-                </div>
-              </th>
-              <th
-                className={cn(
-                  'px-2 py-3 text-center font-bold text-white whitespace-nowrap cursor-pointer transition-colors duration-fast ease-elegant hidden sm:table-cell',
-                  'hover:bg-matsu-light',
-                  headBorder,
-                  sortKey === 'managementFee' && 'bg-matsu-dark'
-                )}
-                onClick={() => onSort('managementFee')}
-                title="旧システムの管理料区分（永代・10年など）と金額。クリックで並べ替え"
-              >
-                <div className="flex items-center justify-center">
-                  <span>管理料</span>
-                </div>
-              </th>
               <th
                 className={cn('px-2 py-3 text-left font-bold text-white whitespace-nowrap hidden md:table-cell', headBorder)}
                 title="次回請求予定の年月（管理料の終納請求年月の翌月）。終納請求年月が未登録の区画は「-」"
@@ -273,10 +258,11 @@ export function PlotTable({
             ) : plots.length > 0 ? (
               buildPlotDisplayRows(plots, startIndex, showBuriedPersons).map((row) => {
                 const { plot, buriedPersonName, buriedIndex, isPlotLead, plotAbsoluteIndex } = row;
-                const paymentStatus = plot.paymentStatus as PaymentStatus;
                 const hitReason = getSearchHitReason(plot, searchQuery);
                 const vacant = isVacantPlot(plot);
                 const occupancyLabel = getOccupancyLabel(plot);
+                const plotCode = formatAreaPlotCode(plot.areaName, plot.displayNumber || plot.plotNumber);
+                const baseName = plotBaseName(plot);
 
                 return (
                   <tr
@@ -301,8 +287,8 @@ export function PlotTable({
                     }}
                     aria-label={
                       buriedPersonName
-                        ? `${plot.displayNumber || plot.plotNumber} の詳細を開く（埋葬者: ${buriedPersonName}）`
-                        : `${plot.displayNumber || plot.plotNumber} の詳細を開く`
+                        ? `${plotCode || plot.displayNumber || plot.plotNumber} の詳細を開く（埋葬者: ${buriedPersonName}）`
+                        : `${plotCode || plot.displayNumber || plot.plotNumber} の詳細を開く`
                     }
                   >
                     <td className={cn('px-2 py-3 text-center', cellBorder)}>
@@ -324,20 +310,14 @@ export function PlotTable({
                       {isPlotLead ? plotPeriod(plot) || '-' : ''}
                     </td>
                     <td
-                      className={cellWrapClass('areaName', cn('px-2 py-3 text-hai', cellBorder))}
-                      title={isPlotLead ? plot.areaName || undefined : undefined}
-                    >
-                      {isPlotLead && <LegacyAwareValue value={plot.areaName} kind="areaName" />}
-                    </td>
-                    <td
                       className={cellWrapClass(
                         'plotNumber',
                         cn('px-2 py-3 font-mono text-matsu underline-offset-2 group-hover:underline', cellBorder)
                       )}
-                      title={plot.displayNumber || plot.plotNumber}
+                      title={isPlotLead ? plotCode || undefined : undefined}
                     >
                       {isPlotLead ? (
-                        <LegacyAwareValue value={plot.displayNumber || plot.plotNumber} kind="plotNumber" />
+                        plotCode || '-'
                       ) : (
                         <span className="text-hai" aria-hidden="true">
                           ↳
@@ -349,6 +329,15 @@ export function PlotTable({
                       title={isPlotLead ? plot.agentName || undefined : undefined}
                     >
                       {isPlotLead ? plot.agentName || '-' : ''}
+                    </td>
+                    <td
+                      className={cn('px-2 py-3 text-hai truncate', cellBorder)}
+                      title={isPlotLead ? baseName || undefined : undefined}
+                    >
+                      {isPlotLead ? baseName || '-' : ''}
+                    </td>
+                    <td className={cn('px-2 py-3 text-hai text-center hidden sm:table-cell', cellBorder)}>
+                      {isPlotLead ? <ManagementFeeCell plot={plot} /> : ''}
                     </td>
                     <td className={cn('px-2 py-3 align-top', cellBorder)}>
                       <div className={isColumnExpanded(columnWidths, 'customerName') ? '' : 'truncate'}>
@@ -374,6 +363,16 @@ export function PlotTable({
                         )}
                       </div>
                     </td>
+                    <td className={cn('px-2 py-3 text-hai hidden md:table-cell align-top', cellBorder)}>
+                      {isPlotLead && (
+                        <div
+                          className={isColumnExpanded(columnWidths, 'notes') ? 'whitespace-normal break-words' : 'line-clamp-2 break-all'}
+                          title={[plot.contractNotes, plot.customerNotes].filter(Boolean).join(' / ')}
+                        >
+                          {[plot.contractNotes, plot.customerNotes].filter(Boolean).join(' / ') || '-'}
+                        </div>
+                      )}
+                    </td>
                     <td
                       className={cellWrapClass('address', cn('px-2 py-3 text-hai hidden md:table-cell', cellBorder))}
                       title={isPlotLead ? plot.customerAddress || undefined : undefined}
@@ -393,16 +392,6 @@ export function PlotTable({
                     >
                       {isPlotLead ? formatPhoneNumber(plot.customerPhoneNumber) || '-' : ''}
                     </td>
-                    <td className={cn('px-2 py-3 text-hai hidden md:table-cell align-top', cellBorder)}>
-                      {isPlotLead && (
-                        <div
-                          className={isColumnExpanded(columnWidths, 'notes') ? 'whitespace-normal break-words' : 'line-clamp-2 break-all'}
-                          title={[plot.contractNotes, plot.customerNotes].filter(Boolean).join(' / ')}
-                        >
-                          {[plot.contractNotes, plot.customerNotes].filter(Boolean).join(' / ') || '-'}
-                        </div>
-                      )}
-                    </td>
                     {showBuriedPersons && (
                       <td
                         className={cellWrapClass(
@@ -414,22 +403,6 @@ export function PlotTable({
                         {buriedPersonName || '-'}
                       </td>
                     )}
-                    <td className={cn('px-2 py-3 text-center', cellBorder)}>
-                      {!isPlotLead ? null : paymentStatus ? (
-                        <StatusBadge
-                          variant={PAYMENT_STATUS_VARIANTS[paymentStatus]}
-                          size="sm"
-                          withSymbol
-                        >
-                          {PAYMENT_STATUS_LABELS[paymentStatus]}
-                        </StatusBadge>
-                      ) : (
-                        <span className="text-hai">-</span>
-                      )}
-                    </td>
-                    <td className={cn('px-2 py-3 text-hai text-center hidden sm:table-cell', cellBorder)}>
-                      {isPlotLead ? <ManagementFeeCell plot={plot} /> : ''}
-                    </td>
                     <td
                       className={cn('px-2 py-3 text-hai truncate tabular-nums hidden md:table-cell', cellBorder)}
                       title={!isPlotLead || formatDate(plot.nextBillingDate) === '-' ? undefined : formatDate(plot.nextBillingDate)}
