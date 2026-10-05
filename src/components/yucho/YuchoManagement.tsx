@@ -24,6 +24,7 @@ import {
   type YuchoBillingItem,
   type YuchoExportKind,
 } from '@/lib/api/yucho';
+import { generateMonthBilling } from '@/lib/api/billings';
 import {
   CLOSED_REASON_LABEL,
   daysInMonth,
@@ -97,13 +98,14 @@ export default function YuchoManagement() {
   const [billingYear, setBillingYear] = useState(THIS_YEAR);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isCreatingBills, setIsCreatingBills] = useState(false);
   const [sendMethod, setSendMethod] = useState<'browser' | 'zengin'>('browser');
   const [billingMonth, setBillingMonth] = useState(new Date().getMonth() + 1);
   const [transferDay, setTransferDay] = useState(() =>
     nearestYuchoBusinessDay(THIS_YEAR, new Date().getMonth() + 1, DEFAULT_TRANSFER_DAY),
   );
 
-  const { data, isLoading, error } = useAsyncData(
+  const { data, isLoading, error, refetch } = useAsyncData(
     () =>
       getYuchoBilling({
         year: billingYear,
@@ -113,6 +115,39 @@ export default function YuchoManagement() {
       }),
     { deps: [billingYear, billingMonth] },
   );
+
+  const {
+    data: monthBilling,
+    isLoading: isMonthLoading,
+    error: monthBillingError,
+    refetch: refetchMonthBilling,
+  } = useAsyncData(
+    () => generateMonthBilling({ year: billingYear, month: billingMonth, apply: false }),
+    { deps: [billingYear, billingMonth] },
+  );
+
+  const creatableCount = monthBilling?.created ?? 0;
+
+  const handleCreateBills = async () => {
+    setIsCreatingBills(true);
+    try {
+      const result = await generateMonthBilling({
+        year: billingYear,
+        month: billingMonth,
+        apply: true,
+      });
+      const created = result.data?.created ?? 0;
+      showSuccess(
+        `${created}人の請求を作りました`,
+        `${billingYear}年${billingMonth}月。すでに請求がある人は作っていません`,
+      );
+      await Promise.all([refetch(), refetchMonthBilling()]);
+    } catch (e) {
+      showError('請求を作れませんでした', e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsCreatingBills(false);
+    }
+  };
 
   const changePeriod = (year: number, month: number) => {
     setBillingYear(year);
@@ -405,6 +440,37 @@ export default function YuchoManagement() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gin p-3 md:p-4 shadow-elegant-sm space-y-2">
+          <p className="text-sm font-medium text-sumi">この月の請求を作る</p>
+          <p className="text-xs text-hai">
+            請求月が{billingMonth}月で、{billingYear}年の請求がまだ無い人に、管理料の請求を作ります。
+            5年・10年まとめて払う人は、ここでは作りません。
+            {billingMonth === 3 ? ' 請求月が空の人は、3月として作ります。' : ''}
+          </p>
+          {monthBillingError ? (
+            <p className="text-xs text-matsu">人数を確認できませんでした。{monthBillingError}</p>
+          ) : (
+            <p className="text-sm text-sumi">
+              {isMonthLoading
+                ? '人数を確認しています'
+                : `新しく作れるのは ${creatableCount}人です。すでに請求がある人は ${monthBilling?.skippedExisting ?? 0}人です。`}
+            </p>
+          )}
+          <Button
+            variant="ai"
+            size="sm"
+            onClick={handleCreateBills}
+            disabled={creatableCount === 0 || isMonthLoading || isCreatingBills}
+          >
+            {isCreatingBills ? (
+              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+            ) : (
+              <Wallet className="w-4 h-4 mr-1.5" />
+            )}
+            {billingYear}年{billingMonth}月の請求を作る
+          </Button>
         </div>
 
         {/* エラー表示 */}

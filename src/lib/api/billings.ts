@@ -142,6 +142,30 @@ export function getUncollectedBillings(
   });
 }
 
+export interface MonthBillingResult {
+  year: number;
+  month: number;
+  apply: boolean;
+  /** 新しく作る（作った）人数 */
+  created: number;
+  /** その年の請求がすでにある人数 */
+  skippedExisting: number;
+  /** 5年・10年まとめて払う人。この操作では作らない */
+  skippedPrepaid: number;
+  skippedNoAmount: number;
+  skippedNoCustomer: number;
+  needsReview: number;
+}
+
+/** 選んだ年・月の管理料請求をまとめて作る。apply=false は人数だけ見る。 */
+export function generateMonthBilling(input: {
+  year: number;
+  month: number;
+  apply: boolean;
+}): Promise<ApiResponse<MonthBillingResult>> {
+  return apiPost<MonthBillingResult>('/billings/management-fee/generate', input);
+}
+
 // ===== ラベル定義（UI 表示用） =====
 
 export const BILLING_CATEGORY_LABELS: Record<BillingCategory, string> = {
