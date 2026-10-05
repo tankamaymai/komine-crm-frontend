@@ -2,7 +2,8 @@
  * ゆうちょ連携API
  *
  * バックエンドの /api/v1/yucho/billing と /api/v1/yucho/export を呼び出し、
- * 管理料・合祀料金の請求対象データの取得とCSV出力を提供する。
+ * 管理料の請求対象データの取得とCSV出力を提供する。
+ * 合祀に料金はないため、引き落としには含めない。
  */
 
 import { apiGet, API_CONFIG, fetchWithTokenRefresh } from './client';
@@ -43,6 +44,12 @@ export interface YuchoBillingItem {
   scheduledDate: string | null;
   billingMonth: number | null;
   billingInfo: YuchoBillingInfo | null;
+  payerCode?: string | null;
+  payerCode1?: string | null;
+  payerCode2?: string | null;
+  accountKana?: string | null;
+  exportable?: boolean;
+  excludeReason?: string | null;
 }
 
 export interface YuchoBillingSummary {
@@ -66,6 +73,10 @@ export interface YuchoBillingResponse {
   period: { year: number; month: number | null };
   items: YuchoBillingItem[];
   summary: YuchoBillingSummary;
+  exportSettings?: {
+    zenginReady: boolean;
+    missing: string[];
+  };
 }
 
 export interface YuchoBillingParams {
@@ -75,12 +86,12 @@ export interface YuchoBillingParams {
   status?: YuchoStatus;
 }
 
+export type YuchoExportKind = 'payer_master' | 'debit' | 'zengin';
+
 export interface YuchoExportParams extends YuchoBillingParams {
-  transferDate: string; // YYYY-MM-DD
-  clientCode: string;
-  clientName: string;
-  bankCode?: string;
-  branchCode?: string;
+  kind: YuchoExportKind;
+  transferDay?: number;
+  transferMonth?: number;
 }
 
 // ============================================================
@@ -104,8 +115,8 @@ export async function getYuchoBilling(
 }
 
 /**
- * CSVエクスポート
- * GET /api/v1/yucho/export → text/csv (全銀協固定長)
+ * 公式ファイル出力
+ * GET /api/v1/yucho/export
  *
  * apiRequest() は JSON 前提なので、CSV は直接 fetch でダウンロードする。
  * トークンリフレッシュは fetchWithTokenRefresh で共有クライアントと同じ挙動にする（#256）。

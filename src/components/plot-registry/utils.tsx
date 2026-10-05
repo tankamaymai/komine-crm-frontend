@@ -25,9 +25,9 @@ export function plotPeriod(plot: PlotListItem): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-/** 一覧の基地。API が名前にして返す。 */
-export function plotBaseName(plot: { baseName?: string | null }): string {
-  const value = plot.baseName;
+/** 一覧の基地。API が名前にして返す。共有の型定義に届く前でも、画面側で読めるようにする。 */
+export function plotBaseName(plot: PlotListItem): string {
+  const value = (plot as PlotListItem & { baseName?: string | null }).baseName;
   return typeof value === 'string' ? value.trim() : '';
 }
 
