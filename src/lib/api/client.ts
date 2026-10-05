@@ -193,7 +193,8 @@ function errorLog(message: string, error?: unknown): void {
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
-  skipTokenRefresh = false
+  skipTokenRefresh = false,
+  timeoutMs?: number
 ): Promise<ApiResponse<T>> {
   // リクエスト前にトークンが期限切れ間近かチェック（認証が必要なエンドポイントのみ）
   const isAuthEndpoint = endpoint.includes('/auth/');
@@ -212,7 +213,7 @@ export async function apiRequest<T>(
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.timeout);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? API_CONFIG.timeout);
 
   debugLog(`Request: ${options.method || 'GET'} ${endpoint}`);
 
@@ -234,7 +235,7 @@ export async function apiRequest<T>(
       if (refreshed) {
         debugLog('Token refreshed, retrying request');
         // リフレッシュ成功時はリクエストを再試行（無限ループ防止のためskipTokenRefresh=true）
-        return apiRequest<T>(endpoint, options, true);
+        return apiRequest<T>(endpoint, options, true, timeoutMs);
       } else {
         debugLog('Token refresh failed, returning 401 error');
         // リフレッシュ失敗時は認証エラーを返す
@@ -248,7 +249,22 @@ export async function apiRequest<T>(
       }
     }
 
-    const data = await response.json();
+    const raw = await response.text();
+    let data: { success?: boolean; error?: { code?: string; message?: string; details?: unknown } } =
+      {};
+    if (raw) {
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        return {
+          success: false,
+          error: {
+            code: 'BAD_RESPONSE',
+            message: 'サーバーの返事を読めませんでした。もう一度開いて、人数を確認してください。',
+          },
+        };
+      }
+    }
 
     if (!response.ok) {
       const errorResponse: ApiErrorResponse = {
@@ -269,7 +285,7 @@ export async function apiRequest<T>(
     clearTimeout(timeoutId);
 
     if (error instanceof Error && error.name === 'AbortError') {
-      errorLog('Request timeout', { endpoint, timeout: API_CONFIG.timeout });
+      errorLog('Request timeout', { endpoint, timeout: timeoutMs ?? API_CONFIG.timeout });
       return {
         success: false,
         error: {
@@ -320,12 +336,18 @@ export async function apiGet<T>(
  */
 export async function apiPost<T>(
   endpoint: string,
-  data?: unknown
+  data?: unknown,
+  timeoutMs?: number
 ): Promise<ApiResponse<T>> {
-  return apiRequest<T>(endpoint, {
-    method: 'POST',
-    body: data ? JSON.stringify(data) : undefined,
-  });
+  return apiRequest<T>(
+    endpoint,
+    {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    },
+    false,
+    timeoutMs
+  );
 }
 
 /**
