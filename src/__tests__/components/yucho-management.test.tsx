@@ -4,6 +4,10 @@ import '@testing-library/jest-dom';
 
 const getYuchoBilling = jest.fn();
 const exportYuchoCsv = jest.fn();
+const generateMonthBilling = jest.fn();
+jest.mock('@/lib/api/billings', () => ({
+  generateMonthBilling: (...a: unknown[]) => generateMonthBilling(...a),
+}));
 jest.mock('@/lib/api/yucho', () => ({
   getYuchoBilling: (...a: unknown[]) => getYuchoBilling(...a),
   exportYuchoCsv: (...a: unknown[]) => exportYuchoCsv(...a),
@@ -128,6 +132,20 @@ beforeEach(() => {
   jest.clearAllMocks();
   getYuchoBilling.mockResolvedValue(billingResponse);
   exportYuchoCsv.mockResolvedValue(new Blob(['']));
+  generateMonthBilling.mockResolvedValue({
+    success: true,
+    data: {
+      year: 2026,
+      month: 5,
+      apply: false,
+      created: 2,
+      skippedExisting: 1,
+      skippedPrepaid: 0,
+      skippedNoAmount: 0,
+      skippedNoCustomer: 0,
+      needsReview: 0,
+    },
+  });
 });
 
 // 画面の並びは 年 → 月 → 引き落とし日
@@ -184,6 +202,21 @@ describe('YuchoManagement', () => {
         kind: 'debit',
         transferDay: 18,
         transferMonth: 5,
+      }),
+    );
+  });
+
+  it('選んだ年と月で、まだ請求が無い人の請求を作る', async () => {
+    render(<YuchoManagement />);
+    const button = await screen.findByRole('button', { name: '2026年5月の請求を作る' });
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+
+    await waitFor(() =>
+      expect(generateMonthBilling).toHaveBeenCalledWith({
+        year: 2026,
+        month: 5,
+        apply: true,
       }),
     );
   });
