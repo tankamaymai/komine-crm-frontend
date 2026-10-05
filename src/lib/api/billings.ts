@@ -163,7 +163,7 @@ export function generateMonthBilling(input: {
   month: number;
   apply: boolean;
 }): Promise<ApiResponse<MonthBillingResult>> {
-  return apiPost<MonthBillingResult>('/billings/management-fee/generate', input);
+  return apiPost<MonthBillingResult>('/billings/management-fee/generate', input, 180_000);
 }
 
 // ===== ラベル定義（UI 表示用） =====
