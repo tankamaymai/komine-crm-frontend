@@ -11,6 +11,20 @@ export interface PlotMapLayoutCell {
   unsellable?: boolean;
 }
 
+/** 元の並びでの行・列（originRow / originCol）がマスの目印。同じ番号が複数ある区があるため。 */
+export interface PlotMapPlacedCell extends PlotMapLayoutCell {
+  originRow: number;
+  originCol: number;
+}
+
+export interface PlotMapCellPosition {
+  originRow: number;
+  originCol: number;
+  plotLabel: string;
+  row: number;
+  col: number;
+}
+
 export interface PlotMapOverlayPlot {
   id: string;
   plotNumber: string;
@@ -26,6 +40,8 @@ export interface PlotMapOverlayPlot {
 export interface PlotMapCellView {
   row: number;
   col: number;
+  originRow: number;
+  originCol: number;
   plotLabel: string;
   status: PlotMapStatus;
   displayLabel: string;

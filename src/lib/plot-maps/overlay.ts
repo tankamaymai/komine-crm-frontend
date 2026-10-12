@@ -4,6 +4,7 @@ import type {
   PlotMapId,
   PlotMapLayoutCell,
   PlotMapOverlayPlot,
+  PlotMapPlacedCell,
   PlotMapStatus,
 } from './types';
 
@@ -95,7 +96,7 @@ const STATUS_LABEL: Record<PlotMapStatus, string> = {
 };
 
 export function overlayLayoutWithPlots(
-  cells: PlotMapLayoutCell[],
+  cells: Array<PlotMapLayoutCell & Partial<Pick<PlotMapPlacedCell, 'originRow' | 'originCol'>>>,
   section: string | string[],
   plots: PlotMapOverlayPlot[]
 ): PlotMapCellView[] {
@@ -114,6 +115,8 @@ export function overlayLayoutWithPlots(
     return {
       row: cell.row,
       col: cell.col,
+      originRow: cell.originRow ?? cell.row,
+      originCol: cell.originCol ?? cell.col,
       plotLabel: cell.plotLabel,
       status,
       displayLabel,

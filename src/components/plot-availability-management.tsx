@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { CreateVacantPlotDialog } from '@/components/create-vacant-plot-dialog';
 import { BulkCreateVacantPlotsDialog } from '@/components/bulk-create-vacant-plots-dialog';
 import { PlotMapSection } from '@/components/plot-map/PlotMapSection';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import MonthlyReportView from '@/components/plot-availability/monthly-report-view';
 import VacantLedgerView from '@/components/plot-availability/vacant-ledger-view';
 import SalesLedgerView from '@/components/plot-availability/sales-ledger-view';
@@ -266,6 +267,19 @@ export default function PlotAvailabilityManagement() {
     params.delete('map');
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
+  const isMapDirtyRef = useRef(false);
+  const [pendingMapLeave, setPendingMapLeave] = useState<(() => void) | null>(null);
+  const handleMapDirtyChange = useCallback((dirty: boolean) => {
+    isMapDirtyRef.current = dirty;
+  }, []);
+  const leavePlotMap = (action: () => void) => {
+    if (isMapDirtyRef.current) {
+      setPendingMapLeave(() => action);
+    } else {
+      action();
+    }
   };
 
   useEffect(() => {
@@ -864,7 +878,9 @@ export default function PlotAvailabilityManagement() {
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   const mapId = findMapId(item.period, item.section);
-                                  if (mapId) openPlotMap(mapId);
+                                  if (mapId && mapId !== activeMapId) {
+                                    leavePlotMap(() => openPlotMap(mapId));
+                                  }
                                 }}
                               >
                                 <Map className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
@@ -1174,7 +1190,12 @@ export default function PlotAvailabilityManagement() {
           </div>
 
           {displayMode === 'section' && activeMapId && (
-            <PlotMapSection mapId={activeMapId} onClose={closePlotMap} />
+            <PlotMapSection
+              key={activeMapId}
+              mapId={activeMapId}
+              onClose={() => leavePlotMap(closePlotMap)}
+              onDirtyChange={handleMapDirtyChange}
+            />
           )}
 
           {/* フッター情報（凡例）— 状況（残数）と使用率（%）は別軸である点を明示（#183） */}
@@ -1249,6 +1270,23 @@ export default function PlotAvailabilityManagement() {
         isOpen={isBulkDialogOpen}
         onClose={() => setIsBulkDialogOpen(false)}
         onCreated={handleVacantCreated}
+      />
+
+      <ConfirmDialog
+        open={pendingMapLeave !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingMapLeave(null);
+        }}
+        title="保存していない移動があります"
+        description="閉じますか？閉じると、動かした場所はみんなの区画図に残りません。"
+        confirmLabel="閉じる"
+        cancelLabel="戻る"
+        onConfirm={() => {
+          const action = pendingMapLeave;
+          isMapDirtyRef.current = false;
+          setPendingMapLeave(null);
+          action?.();
+        }}
       />
     </div>
   );
