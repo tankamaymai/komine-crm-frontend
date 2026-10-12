@@ -1,11 +1,19 @@
-import { apiGet, shouldUseMockData } from './client';
+import { apiGet, apiPut, shouldUseMockData } from './client';
 import { ApiResponse } from './types';
-import type { PlotMapId, PlotMapOverlayPlot } from '@/lib/plot-maps/types';
+import type { PlotMapCellPosition, PlotMapId, PlotMapOverlayPlot } from '@/lib/plot-maps/types';
 
 export interface PlotMapResponse {
   mapId: PlotMapId;
   plots: PlotMapOverlayPlot[];
+  positions: PlotMapCellPosition[];
 }
+
+export interface PlotMapPositionsResponse {
+  mapId: PlotMapId;
+  positions: PlotMapCellPosition[];
+}
+
+const mockPositions = new Map<PlotMapId, PlotMapCellPosition[]>();
 
 function mockPlots(mapId: PlotMapId): PlotMapOverlayPlot[] {
   if (mapId === '2-1') {
@@ -50,7 +58,25 @@ function mockPlots(mapId: PlotMapId): PlotMapOverlayPlot[] {
 
 export async function getPlotMap(mapId: PlotMapId): Promise<ApiResponse<PlotMapResponse>> {
   if (shouldUseMockData()) {
-    return { success: true, data: { mapId, plots: mockPlots(mapId) } };
+    return {
+      success: true,
+      data: { mapId, plots: mockPlots(mapId), positions: mockPositions.get(mapId) ?? [] },
+    };
   }
-  return apiGet<PlotMapResponse>('/plots/inventory/map', { mapId });
+  const response = await apiGet<PlotMapResponse>('/plots/inventory/map', { mapId });
+  if (response.success) {
+    return { ...response, data: { ...response.data, positions: response.data.positions ?? [] } };
+  }
+  return response;
+}
+
+export async function savePlotMapPositions(
+  mapId: PlotMapId,
+  positions: PlotMapCellPosition[]
+): Promise<ApiResponse<PlotMapPositionsResponse>> {
+  if (shouldUseMockData()) {
+    mockPositions.set(mapId, positions);
+    return { success: true, data: { mapId, positions } };
+  }
+  return apiPut<PlotMapPositionsResponse>('/plots/inventory/map/positions', { mapId, positions });
 }
