@@ -109,3 +109,17 @@ export function resolveHandlerName(
 export function resolveBaseName(graveType: number | null | undefined): string | null {
   return lookup(BASE_BY_TYPE, graveType);
 }
+
+export function handlerFilterOptions(): { code: number; name: string }[] {
+  return Object.entries(HANDLER_BY_KIND)
+    .map(([code, name]) => ({ code: Number(code), name }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+}
+
+/** データにある基地番号だけを名前にして、五十音順に並べる。 */
+export function baseFilterOptions(codes: number[]): { code: number; name: string }[] {
+  return codes
+    .map((code) => ({ code, name: BASE_BY_TYPE[code] }))
+    .filter((item): item is { code: number; name: string } => Boolean(item.name))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+}

@@ -134,15 +134,11 @@ export default function PlotForm({ plotDetail, onSave, isLoading }: PlotFormProp
   // タブ定義: フィールドグループ → タブ名の対応
   const tabConfig = {
     'basic-info': {
-      label: '区画・契約情報',
-      sections: ['physicalPlot', 'contractPlot', 'saleContract', 'customer'],
+      label: '基本情報①',
+      sections: ['physicalPlot', 'contractPlot', 'saleContract', 'customer', 'usageFee', 'managementFee', 'gravestoneInfo'],
     },
     'fee-info': {
-      label: '料金情報',
-      sections: ['usageFee', 'managementFee'],
-    },
-    'work-billing': {
-      label: '勤務先',
+      label: '基本情報②',
       sections: ['workInfo'],
     },
     'contacts': {
@@ -174,11 +170,10 @@ export default function PlotForm({ plotDetail, onSave, isLoading }: PlotFormProp
     'saleContract.price': '金額',
     'saleContract.paymentStatus': '支払状態',
     'saleContract.reservationDate': '予約日',
-    'saleContract.acceptanceNumber': '受付番号',
+    'saleContract.acceptanceNumber': '承諾書番号',
     'saleContract.acceptanceDate': '受付日',
     'saleContract.permitDate': '許可日',
-    'saleContract.permitNumber': '平成書番号',
-    'saleContract.startDate': '使用開始日',
+    'saleContract.startDate': '開始年月日',
     'saleContract.staffInCharge': '担当者',
     'saleContract.agentName': '取扱',
     'saleContract.notes': '備考',
@@ -300,8 +295,6 @@ export default function PlotForm({ plotDetail, onSave, isLoading }: PlotFormProp
     // 合祀設定
     'collectiveBurial.burialCapacity': '埋葬上限数',
     'collectiveBurial.validityPeriodYears': '有効期間（年）',
-    'collectiveBurial.billingAmount': '請求金額',
-    'collectiveBurial.notes': '備考',
   };
 
   // 配列フィールドのセクション名
@@ -381,7 +374,7 @@ export default function PlotForm({ plotDetail, onSave, isLoading }: PlotFormProp
       )}
 
       <Tabs defaultValue="basic-info" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto gap-1">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 h-auto gap-1">
           {Object.entries(tabConfig).map(([tabKey, tab]) => {
             const hasError = tabsWithErrors.has(tabKey);
             return (
@@ -402,15 +395,14 @@ export default function PlotForm({ plotDetail, onSave, isLoading }: PlotFormProp
           })}
         </TabsList>
 
-        <TabsContent value="basic-info" className="space-y-6 mt-6">
-          <BasicInfoTab {...tabBaseProps} legacyBaseName={resolveBaseName(plotDetail?.graveType)} />
+        <TabsContent value="basic-info" className="mt-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+            <BasicInfoTab {...tabBaseProps} legacyBaseName={resolveBaseName(plotDetail?.graveType)} />
+            <FeeInfoTab {...tabBaseProps} />
+          </div>
         </TabsContent>
 
         <TabsContent value="fee-info" className="space-y-6 mt-6">
-          <FeeInfoTab {...tabBaseProps} />
-        </TabsContent>
-
-        <TabsContent value="work-billing" className="space-y-6 mt-6">
           <WorkBillingTab {...tabBaseProps} />
         </TabsContent>
 

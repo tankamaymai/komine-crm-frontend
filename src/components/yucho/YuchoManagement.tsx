@@ -136,7 +136,7 @@ export default function YuchoManagement() {
         month: billingMonth,
         apply: true,
       });
-      const created = result.data?.created ?? 0;
+      const created = result.success ? (result.data?.created ?? 0) : 0;
       showSuccess(
         `${created}人の請求を作りました`,
         `${billingYear}年${billingMonth}月。すでに請求がある人は作っていません`,

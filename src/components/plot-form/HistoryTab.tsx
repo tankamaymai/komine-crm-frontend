@@ -3,18 +3,6 @@
 import { useState } from 'react';
 import type { HistoryTabProps } from './types';
 
-const ACTION_TYPE_LABELS: Record<string, string> = {
-  CREATE: '作成',
-  UPDATE: '更新',
-  DELETE: '削除',
-};
-
-const ACTION_TYPE_STYLES: Record<string, string> = {
-  CREATE: 'bg-green-100 text-green-800',
-  UPDATE: 'bg-blue-100 text-blue-800',
-  DELETE: 'bg-red-100 text-red-800',
-};
-
 /**
  * 履歴レコードの差分1項目
  */
@@ -145,10 +133,10 @@ export function HistoryTab({ plotDetail }: HistoryTabProps) {
 
       {/* ヘッダー */}
       <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-kinari border rounded-t-md text-xs font-medium text-hai">
-        <span className="col-span-3">日時</span>
-        <span className="col-span-2">対象 / 操作</span>
-        <span className="col-span-4">変更内容</span>
-        <span className="col-span-2">変更者</span>
+        <span className="col-span-3">氏名</span>
+        <span className="col-span-3">更新履歴</span>
+        <span className="col-span-4">更新事由</span>
+        <span className="col-span-1" />
         <span className="col-span-1 text-right">詳細</span>
       </div>
 
@@ -156,9 +144,6 @@ export function HistoryTab({ plotDetail }: HistoryTabProps) {
       <div className="border border-t-0 rounded-b-md divide-y">
         {histories.map((history) => {
           const isExpanded = selectedId === history.id;
-          const actionStyle =
-            ACTION_TYPE_STYLES[history.actionType] ?? 'bg-gray-100 text-gray-800';
-          const actionLabel = ACTION_TYPE_LABELS[history.actionType] ?? history.actionType;
           return (
             <div key={history.id}>
               <button
@@ -168,21 +153,16 @@ export function HistoryTab({ plotDetail }: HistoryTabProps) {
                 }`}
                 onClick={() => setSelectedId(isExpanded ? null : history.id)}
               >
+                <span className="col-span-3 text-xs text-sumi">
+                  {history.entityLabel ?? history.changedBy ?? '-'}
+                </span>
                 <span className="col-span-3 text-xs">
                   {new Date(history.createdAt).toLocaleString('ja-JP')}
                 </span>
-                <span className="col-span-2 flex items-center gap-1">
-                  <span className="text-xs text-sumi">
-                    {history.entityLabel ?? history.entityType ?? ''}
-                  </span>
-                  <span
-                    className={`inline-block px-2 py-0.5 text-xs rounded-full ${actionStyle}`}
-                  >
-                    {actionLabel}
-                  </span>
+                <span className="col-span-4 truncate text-xs">
+                  {history.changeReason || summarizeChange(history)}
                 </span>
-                <span className="col-span-4 truncate text-xs">{summarizeChange(history)}</span>
-                <span className="col-span-2 text-xs">{history.changedBy ?? '-'}</span>
+                <span className="col-span-1" />
                 <span className="col-span-1 text-right text-xs text-hai">
                   {isExpanded ? '▲' : '▼'}
                 </span>

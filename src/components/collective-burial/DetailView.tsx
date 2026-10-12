@@ -13,11 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LegacyAwareValue } from '@/components/legacy-aware-value';
 import {
   CollectiveBurialDetail,
-  BillingStatus,
-  BILLING_STATUS_LABELS,
-  BILLING_STATUS_COLORS,
 } from '@/lib/api';
-import { useCollectiveBurialMutations } from '@/hooks/useCollectiveBurials';
 import { formatDateWithEra } from '@/lib/format';
 import {
   calculateElapsedYears,
@@ -37,27 +33,8 @@ interface CollectiveBurialDetailViewProps {
 export default function CollectiveBurialDetailView({
   data,
   onClose,
-  onRefresh,
 }: CollectiveBurialDetailViewProps) {
   const [activeTab, setActiveTab] = useState('basic');
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-
-  const { updateBillingStatus } = useCollectiveBurialMutations();
-
-  // 請求ステータス更新
-  const handleStatusChange = async (newStatus: BillingStatus) => {
-    if (data.billingStatus === newStatus) return;
-
-    setIsUpdatingStatus(true);
-    try {
-      const success = await updateBillingStatus(data.id, { billingStatus: newStatus });
-      if (success) {
-        onRefresh?.();
-      }
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
 
   // 上限到達率の計算
   const capacityPercentage = Math.round((data.currentBurialCount / data.burialCapacity) * 100);
@@ -106,9 +83,6 @@ export default function CollectiveBurialDetailView({
                 区画: <LegacyAwareValue value={data.displayNumber || data.plotNumber} kind="plotNumber" /> / <LegacyAwareValue value={data.areaName} kind="areaName" />
               </p>
             </div>
-            <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${BILLING_STATUS_COLORS[data.billingStatus as BillingStatus]}`}>
-              {BILLING_STATUS_LABELS[data.billingStatus as BillingStatus]}
-            </span>
           </div>
           <div className="flex items-center space-x-3">
             {/* 台帳詳細への遷移導線（#188）。Button は asChild 未対応のため buttonVariants を適用 */}
@@ -133,7 +107,7 @@ export default function CollectiveBurialDetailView({
           <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="basic">基本情報</TabsTrigger>
             <TabsTrigger value="capacity">埋葬状況</TabsTrigger>
-            <TabsTrigger value="billing">請求管理</TabsTrigger>
+            <TabsTrigger value="schedule">合祀の予定</TabsTrigger>
           </TabsList>
 
           {/* 基本情報タブ */}
@@ -208,20 +182,6 @@ export default function CollectiveBurialDetailView({
               </div>
             )}
 
-            {/* 備考 */}
-            {data.notes && (
-              <div className="bg-white border border-gin rounded-elegant-lg shadow-elegant-sm overflow-hidden">
-                <div className="px-5 py-4 bg-kinari border-b border-gin">
-                  <h3 className="font-semibold text-sumi flex items-center">
-                    <span className="w-1 h-5 bg-matsu rounded-full mr-3" />
-                    備考
-                  </h3>
-                </div>
-                <div className="p-5">
-                  <p className="whitespace-pre-line text-sumi">{data.notes}</p>
-                </div>
-              </div>
-            )}
           </TabsContent>
 
           {/* 埋葬状況タブ */}
@@ -372,77 +332,25 @@ export default function CollectiveBurialDetailView({
             )}
           </TabsContent>
 
-          {/* 請求管理タブ */}
-          <TabsContent value="billing" className="space-y-6">
+          <TabsContent value="schedule" className="space-y-6">
             <div className="bg-white border border-gin rounded-elegant-lg shadow-elegant-sm overflow-hidden">
               <div className="px-5 py-4 bg-kinari border-b border-gin">
                 <h3 className="font-semibold text-sumi flex items-center">
                   <span className="w-1 h-5 bg-matsu rounded-full mr-3" />
-                  請求情報
+                  合祀の予定
                 </h3>
               </div>
               <div className="p-5">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="p-4 bg-matsu-50 rounded-elegant border border-matsu-100">
-                    <Label className="text-sm text-matsu">請求金額</Label>
-                    <p className="text-2xl font-bold text-matsu-dark mt-2">
-                      {data.billingAmount != null
-                        ? `¥${data.billingAmount.toLocaleString()}`
-                        : '未設定'}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-ai-50 rounded-elegant border border-ai-100">
-                    <Label className="text-sm text-ai">請求ステータス</Label>
-                    <p className={`text-2xl font-bold mt-2 ${data.billingStatus === 'paid' ? 'text-matsu-dark' :
-                      data.billingStatus === 'billed' ? 'text-ai-dark' :
-                        'text-kohaku-dark'
-                      }`}>
-                      {BILLING_STATUS_LABELS[data.billingStatus as BillingStatus]}
-                    </p>
-                  </div>
-                </div>
-
-                {/* ステータス変更ボタン */}
-                <div className="mt-6 p-4 bg-kinari rounded-lg">
-                  <Label className="text-sm text-hai mb-3 block">請求ステータスを変更</Label>
-                  <div className="flex space-x-3">
-                    <Button
-                      variant={data.billingStatus === 'pending' ? 'cha' : 'outline'}
-                      size="sm"
-                      onClick={() => handleStatusChange('pending')}
-                      disabled={isUpdatingStatus}
-                    >
-                      請求前
-                    </Button>
-                    <Button
-                      variant={data.billingStatus === 'billed' ? 'cha' : 'outline'}
-                      size="sm"
-                      onClick={() => handleStatusChange('billed')}
-                      disabled={isUpdatingStatus}
-                    >
-                      請求済
-                    </Button>
-                    <Button
-                      variant={data.billingStatus === 'paid' ? 'cha' : 'outline'}
-                      size="sm"
-                      onClick={() => handleStatusChange('paid')}
-                      disabled={isUpdatingStatus}
-                    >
-                      支払済
-                    </Button>
-                  </div>
-                </div>
-
                 {data.billingScheduledDate ? (
-                  <div className="mt-6">
-                    <Label className="text-sm text-hai">請求予定日</Label>
+                  <div>
+                    <Label className="text-sm text-hai">合祀の予定日</Label>
                     <p className="text-lg font-semibold text-sumi mt-1">
                       {formatDateWithEra(new Date(data.billingScheduledDate))}
                     </p>
                   </div>
                 ) : scheduledDateFallback ? (
-                  <div className="mt-6">
-                    <Label className="text-sm text-hai">請求予定日（自動計算）</Label>
+                  <div>
+                    <Label className="text-sm text-hai">合祀の予定日（自動計算）</Label>
                     <p className="text-lg font-semibold text-sumi mt-1">
                       {formatDateWithEra(scheduledDateFallback)}
                       <span className="ml-2 text-xs text-hai font-normal">
@@ -450,7 +358,9 @@ export default function CollectiveBurialDetailView({
                       </span>
                     </p>
                   </div>
-                ) : null}
+                ) : (
+                  <p className="text-sm text-hai">合祀の予定日はまだ決まっていません。</p>
+                )}
               </div>
             </div>
 

@@ -107,6 +107,9 @@ export {
   syncBurialCount,
   deleteCollectiveBurial,
   getCollectiveBurialStatsByYear,
+  getCollectiveBurialSettings,
+  updateCollectiveBurialSettings,
+  releaseDueCollectiveBurials,
   BILLING_STATUS_LABELS,
   BILLING_STATUS_COLORS,
   // notes変換ヘルパー
@@ -127,6 +130,7 @@ export type {
   SyncBurialCountResponse,
   YearlyStats,
   CollectiveBurialSearchParams,
+  CollectiveBurialReleaseTiming,
   // notes統合用型定義
   CeremonyInfo,
   DocumentInfo,

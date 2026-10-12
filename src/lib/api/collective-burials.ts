@@ -547,6 +547,38 @@ export async function getCollectiveBurialStatsByYear(): Promise<ApiResponse<Year
   return apiRequest<YearlyStats[]>('/collective-burials/stats/by-year');
 }
 
+/** 一斉に解約する月。お盆は8月13日、10月は10月1日 */
+export type CollectiveBurialReleaseTiming = 'obon' | 'october';
+
+export async function getCollectiveBurialSettings(): Promise<
+  ApiResponse<{ releaseTiming: CollectiveBurialReleaseTiming }>
+> {
+  if (shouldUseMockData()) {
+    return { success: true, data: { releaseTiming: 'october' } };
+  }
+  return apiRequest<{ releaseTiming: CollectiveBurialReleaseTiming }>('/collective-burials/settings');
+}
+
+export async function updateCollectiveBurialSettings(
+  releaseTiming: CollectiveBurialReleaseTiming,
+): Promise<ApiResponse<{ releaseTiming: CollectiveBurialReleaseTiming; shifted: number }>> {
+  if (shouldUseMockData()) {
+    return { success: true, data: { releaseTiming, shifted: 0 } };
+  }
+  return apiRequest<{ releaseTiming: CollectiveBurialReleaseTiming; shifted: number }>(
+    '/collective-burials/settings',
+    { method: 'PUT', body: JSON.stringify({ releaseTiming }) },
+  );
+}
+
+/** 今年の合祀日を過ぎた人を解約する。今年より前は対象にしない */
+export async function releaseDueCollectiveBurials(): Promise<ApiResponse<{ released: number }>> {
+  if (shouldUseMockData()) {
+    return { success: true, data: { released: 0 } };
+  }
+  return apiRequest<{ released: number }>('/collective-burials/release-due', { method: 'POST' });
+}
+
 // ============================================================
 // ラベル定義
 // ============================================================

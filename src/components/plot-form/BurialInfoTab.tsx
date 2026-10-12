@@ -718,37 +718,6 @@ export function BurialInfoTab({
               )}
             </div>
 
-            <div>
-              <Label htmlFor="collectiveBurial.billingAmount">請求金額</Label>
-              <Input
-                id="collectiveBurial.billingAmount"
-                type="number"
-                min={0}
-                placeholder="例: 50000"
-                {...register('collectiveBurial.billingAmount', { valueAsNumber: true })}
-                className={errors.collectiveBurial?.billingAmount ? 'border-beni' : ''}
-              />
-              {errors.collectiveBurial?.billingAmount && (
-                <p className="text-sm text-beni mt-1">
-                  {errors.collectiveBurial.billingAmount.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="collectiveBurial.notes">備考</Label>
-              <Input
-                id="collectiveBurial.notes"
-                placeholder="合祀に関する特記事項"
-                {...register('collectiveBurial.notes')}
-                className={errors.collectiveBurial?.notes ? 'border-beni' : ''}
-              />
-              {errors.collectiveBurial?.notes && (
-                <p className="text-sm text-beni mt-1">
-                  {errors.collectiveBurial.notes.message}
-                </p>
-              )}
-            </div>
           </div>
         )}
       </div>
