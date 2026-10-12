@@ -1,6 +1,7 @@
 import type { GraveClassificationsResponse } from '@komine/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { isLegacyAreaName } from '@/lib/legacy-plot-display';
+import { baseFilterOptions, handlerFilterOptions } from '@/lib/legacy-grave-labels';
 import { PERIOD_NAMES } from '@/lib/section-period';
 
 export type OccupancyFilter = 'in_use' | 'vacant' | 'all';
@@ -12,6 +13,8 @@ interface PlotFiltersProps {
   onFilterPeriodChange: (value: string) => void;
   filterAreaName: string;
   onFilterAreaNameChange: (value: string) => void;
+  filterHandler: number | undefined;
+  onFilterHandlerChange: (value: string) => void;
   filterGraveType: number | undefined;
   onFilterGraveTypeChange: (value: string) => void;
   graveClassifications: GraveClassificationsResponse;
@@ -27,6 +30,8 @@ export function PlotFilters({
   onFilterPeriodChange,
   filterAreaName,
   onFilterAreaNameChange,
+  filterHandler,
+  onFilterHandlerChange,
   filterGraveType,
   onFilterGraveTypeChange,
   graveClassifications,
@@ -38,6 +43,8 @@ export function PlotFilters({
     filterAreaName && !areaOptions.includes(filterAreaName)
       ? [filterAreaName, ...areaOptions]
       : areaOptions;
+  const handlerOptions = handlerFilterOptions();
+  const baseOptions = baseFilterOptions(graveClassifications.graveTypes);
 
   return (
     <div className="mb-3 p-3 bg-white border border-gin rounded-elegant grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3 sm:flex-wrap">
@@ -84,18 +91,35 @@ export function PlotFilters({
         </Select>
       </div>
       <div className="flex items-center gap-1 sm:gap-2">
-        <span className="text-xs sm:text-sm text-hai whitespace-nowrap">区分:</span>
+        <span className="text-xs sm:text-sm text-hai whitespace-nowrap">取扱:</span>
         <Select
-          value={filterGraveType === undefined ? 'all' : String(filterGraveType)}
-          onValueChange={onFilterGraveTypeChange}
+          value={filterHandler === undefined ? 'all' : String(filterHandler)}
+          onValueChange={onFilterHandlerChange}
         >
-          <SelectTrigger className="w-full sm:w-20 h-9 text-sm">
+          <SelectTrigger className="w-full sm:w-32 h-9 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全て</SelectItem>
-            {graveClassifications.graveTypes.map((v) => (
-              <SelectItem key={v} value={String(v)}>{v}</SelectItem>
+            {handlerOptions.map((item) => (
+              <SelectItem key={item.code} value={String(item.code)}>{item.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex items-center gap-1 sm:gap-2">
+        <span className="text-xs sm:text-sm text-hai whitespace-nowrap">基地:</span>
+        <Select
+          value={filterGraveType === undefined ? 'all' : String(filterGraveType)}
+          onValueChange={onFilterGraveTypeChange}
+        >
+          <SelectTrigger className="w-full sm:w-40 h-9 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全て</SelectItem>
+            {baseOptions.map((item) => (
+              <SelectItem key={item.code} value={String(item.code)}>{item.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>

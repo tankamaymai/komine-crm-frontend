@@ -30,6 +30,8 @@ function renderFilters(
       onFilterPeriodChange={noop}
       filterAreaName={filterAreaName}
       onFilterAreaNameChange={noop}
+      filterHandler={undefined}
+      onFilterHandlerChange={noop}
       filterGraveType={undefined}
       onFilterGraveTypeChange={noop}
       graveClassifications={{
@@ -61,14 +63,16 @@ describe('台帳フィルターのエリア選択', () => {
     expect(screen.queryByTestId('select-item-unknown-101')).not.toBeInTheDocument();
   });
 
-  it('意味の分からない旧番号の絞り込み（形状・基地）は出さない', () => {
-    renderFilters(['A'], '', [1, 9]);
+  it('取扱と基地は名前で絞れる', () => {
+    renderFilters(['A'], '', [9, 23]);
 
+    expect(screen.getByText('取扱:')).toBeInTheDocument();
+    expect(screen.getByTestId('select-item-1')).toHaveTextContent('小嶺');
+    expect(screen.getByText('基地:')).toBeInTheDocument();
+    expect(screen.getByTestId('select-item-9')).toHaveTextContent('自由');
+    expect(screen.getByTestId('select-item-23')).toHaveTextContent('J3');
+    expect(screen.queryByText('区分:')).not.toBeInTheDocument();
     expect(screen.queryByText('形状:')).not.toBeInTheDocument();
-    expect(screen.queryByText('基地:')).not.toBeInTheDocument();
-    expect(screen.getByText('区分:')).toBeInTheDocument();
-    expect(screen.getByTestId('select-item-1')).toHaveTextContent('1');
-    expect(screen.getByTestId('select-item-9')).toHaveTextContent('9');
   });
 
   it('利用中・空き区画・全てを選べる', () => {

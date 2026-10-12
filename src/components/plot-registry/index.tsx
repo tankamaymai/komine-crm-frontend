@@ -61,6 +61,7 @@ export default function PlotRegistry({
   const [filterOccupancy, setFilterOccupancy] = useState<OccupancyFilter>('in_use');
   const [filterPeriod, setFilterPeriod] = useState('');
   const [filterAreaName, setFilterAreaName] = useState('');
+  const [filterHandler, setFilterHandler] = useState<number | undefined>(undefined);
   const [filterGraveType, setFilterGraveType] = useState<number | undefined>(undefined);
   const [graveClassifications, setGraveClassifications] = useState<GraveClassificationsResponse>({
     graveKinds: [],
@@ -193,6 +194,9 @@ export default function PlotRegistry({
       if (filterAreaName.trim()) {
         params.areaName = filterAreaName.trim();
       }
+      if (filterHandler !== undefined) {
+        params.graveKind = filterHandler;
+      }
       if (filterGraveType !== undefined) {
         params.graveType = filterGraveType;
       }
@@ -223,7 +227,7 @@ export default function PlotRegistry({
         setIsLoading(false);
       }
     }
-  }, [currentPage, itemsPerPage, searchQuery, activeTab, sortKey, sortOrder, filterOccupancy, filterPeriod, filterAreaName, filterGraveType]);
+  }, [currentPage, itemsPerPage, searchQuery, activeTab, sortKey, sortOrder, filterOccupancy, filterPeriod, filterAreaName, filterHandler, filterGraveType]);
 
   useEffect(() => {
     fetchPlots();
@@ -284,12 +288,14 @@ export default function PlotRegistry({
     filterOccupancy !== 'in_use' ||
     filterPeriod !== '' ||
     filterAreaName.trim() !== '' ||
+    filterHandler !== undefined ||
     filterGraveType !== undefined;
 
   const activeFilterCount = [
     filterOccupancy !== 'in_use' ? filterOccupancy : undefined,
     filterPeriod || undefined,
     filterAreaName.trim() || undefined,
+    filterHandler,
     filterGraveType,
   ].filter((v) => v !== undefined && v !== '').length;
 
@@ -308,6 +314,11 @@ export default function PlotRegistry({
     setCurrentPage(1);
   };
 
+  const handleFilterHandlerChange = (value: string) => {
+    setFilterHandler(value === 'all' ? undefined : Number(value));
+    setCurrentPage(1);
+  };
+
   const handleFilterGraveTypeChange = (value: string) => {
     setFilterGraveType(value === 'all' ? undefined : Number(value));
     setCurrentPage(1);
@@ -317,6 +328,7 @@ export default function PlotRegistry({
     setFilterOccupancy('in_use');
     setFilterPeriod('');
     setFilterAreaName('');
+    setFilterHandler(undefined);
     setFilterGraveType(undefined);
     setCurrentPage(1);
   };
@@ -442,6 +454,8 @@ export default function PlotRegistry({
             onFilterPeriodChange={handleFilterPeriodChange}
             filterAreaName={filterAreaName}
             onFilterAreaNameChange={handleFilterAreaNameChange}
+            filterHandler={filterHandler}
+            onFilterHandlerChange={handleFilterHandlerChange}
             filterGraveType={filterGraveType}
             onFilterGraveTypeChange={handleFilterGraveTypeChange}
             graveClassifications={graveClassifications}

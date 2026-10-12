@@ -34,7 +34,7 @@ export function WorkBillingTab({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
       {/* Section 1: Work Info */}
       <div className="border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">

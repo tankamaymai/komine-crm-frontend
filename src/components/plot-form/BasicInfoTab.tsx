@@ -220,6 +220,9 @@ export function BasicInfoTab({
             <SelectItem value={PaymentStatus.Refunded}>返金済</SelectItem>
           </ViewModeSelect>
 
+        </div>
+        {/* 旧画面と同じ2列。左が予約日・許可日、右が承諾書番号・開始年月日。 */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <ViewModeField
             label="予約日"
             viewMode={viewMode}
@@ -229,11 +232,11 @@ export function BasicInfoTab({
           />
 
           <ViewModeField
-            label="受付番号"
+            label="承諾書番号"
             viewMode={viewMode}
             register={register('saleContract.acceptanceNumber')}
             error={errors.saleContract?.acceptanceNumber?.message}
-            placeholder="例: R2024-001"
+            placeholder="例: 1476"
           />
 
           <ViewModeField
@@ -245,20 +248,14 @@ export function BasicInfoTab({
           />
 
           <ViewModeField
-            label="平成書番号"
-            viewMode={viewMode}
-            register={register('saleContract.permitNumber')}
-            error={errors.saleContract?.permitNumber?.message}
-            placeholder="例: P2024-001"
-          />
-
-          <ViewModeField
-            label="使用開始日"
+            label="開始年月日"
             viewMode={viewMode}
             type="date"
             register={register('saleContract.startDate')}
             error={errors.saleContract?.startDate?.message}
           />
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-4">
 
           <ViewModeField
             label="受付日"
@@ -375,24 +372,6 @@ export function BasicInfoTab({
           </div>
 
           <ViewModeField
-            label="本籍郵便番号"
-            viewMode={viewMode}
-            register={register('customer.registeredPostalCode', { setValueAs: digitsOnly })}
-            error={errors.customer?.registeredPostalCode?.message}
-            placeholder="1234567（ハイフンなし7桁）"
-          />
-
-          <div className="col-span-3">
-            <ViewModeField
-              label="本籍地"
-              viewMode={viewMode}
-              register={register('customer.registeredAddress')}
-              error={errors.customer?.registeredAddress?.message}
-              placeholder="東京都..."
-            />
-          </div>
-
-          <ViewModeField
             label="電話番号"
             viewMode={viewMode}
             register={register('customer.phoneNumber', { setValueAs: digitsOnly })}
@@ -416,6 +395,24 @@ export function BasicInfoTab({
             error={errors.customer?.email?.message}
             placeholder="example@example.com"
           />
+
+          <ViewModeField
+            label="本籍郵便番号"
+            viewMode={viewMode}
+            register={register('customer.registeredPostalCode', { setValueAs: digitsOnly })}
+            error={errors.customer?.registeredPostalCode?.message}
+            placeholder="1234567（ハイフンなし7桁）"
+          />
+
+          <div className="col-span-3">
+            <ViewModeField
+              label="本籍住所"
+              viewMode={viewMode}
+              register={register('customer.registeredAddress')}
+              error={errors.customer?.registeredAddress?.message}
+              placeholder="東京都..."
+            />
+          </div>
 
           <div className="col-span-3">
             <ViewModeTextarea

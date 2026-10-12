@@ -272,7 +272,7 @@ export async function apiRequest<T>(
         error: {
           code: data.error?.code || `HTTP_${response.status}`,
           message: data.error?.message || `HTTP Error: ${response.status}`,
-          details: data.error?.details,
+          details: Array.isArray(data.error?.details) ? data.error.details : undefined,
         },
       };
       debugLog(`Response Error: ${response.status}`, errorResponse);

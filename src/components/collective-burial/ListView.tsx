@@ -5,7 +5,7 @@
  * Prisma CollectiveBurialモデルに準拠
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,9 +18,10 @@ import {
 } from '@/hooks/useCollectiveBurials';
 import {
   CollectiveBurialListItem,
-  BillingStatus,
-  BILLING_STATUS_LABELS,
-  BILLING_STATUS_COLORS,
+  CollectiveBurialReleaseTiming,
+  getCollectiveBurialSettings,
+  updateCollectiveBurialSettings,
+  releaseDueCollectiveBurials,
 } from '@/lib/api';
 import {
   calculateElapsedYears,
@@ -42,11 +43,39 @@ export default function CollectiveBurialListView({
 }: CollectiveBurialListViewProps) {
   // フィルター状態
   const [searchQuery, setSearchQuery] = useState('');
-  const [billingStatus, setBillingStatus] = useState<BillingStatus | 'all'>('all');
   const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
+  const [releaseTiming, setReleaseTiming] = useState<CollectiveBurialReleaseTiming>('october');
+  const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
+  const releaseChecked = useRef(false);
 
   // API呼び出し
   const { items, pagination, isLoading, error, search, refresh } = useCollectiveBurialList();
+
+  useEffect(() => {
+    if (releaseChecked.current) return;
+    releaseChecked.current = true;
+    void (async () => {
+      const setting = await getCollectiveBurialSettings();
+      if (setting.success && setting.data) {
+        setReleaseTiming(setting.data.releaseTiming);
+      }
+      const released = await releaseDueCollectiveBurials();
+      if (released.success && (released.data?.released ?? 0) > 0) {
+        setReleaseMessage(`${released.data?.released}件の契約を解約して、区画を空にしました。`);
+        refresh();
+      }
+    })();
+  }, [refresh]);
+
+  const changeReleaseTiming = async (next: CollectiveBurialReleaseTiming) => {
+    setReleaseTiming(next);
+    const result = await updateCollectiveBurialSettings(next);
+    if (result.success) {
+      const label = next === 'obon' ? 'お盆（8月13日）' : '10月1日';
+      setReleaseMessage(`一斉に解約する日を${label}にしました。`);
+      refresh();
+    }
+  };
   const { data: yearlyStats } = useCollectiveBurialStats();
 
   // 現在年（毎レンダー取得。日付ハードコードしない）
@@ -54,8 +83,7 @@ export default function CollectiveBurialListView({
 
   // 検索ヒット件数（全件）と、フィルタ適用中かどうか（#174 / #175 / #187）
   const totalHits = pagination?.totalCount ?? 0;
-  const hasActiveFilter =
-    searchQuery !== '' || billingStatus !== 'all' || selectedYear !== 'all';
+  const hasActiveFilter = searchQuery !== '' || selectedYear !== 'all';
 
   // 年の選択肢を生成
   const availableYears = useMemo(() => {
@@ -67,65 +95,16 @@ export default function CollectiveBurialListView({
   const handleSearch = () => {
     search({
       search: searchQuery || undefined,
-      billingStatus: billingStatus === 'all' ? undefined : billingStatus,
       year: selectedYear === 'all' ? undefined : selectedYear,
-    });
-  };
-
-  // 今年のみに絞り込み
-  const filterByCurrentYear = () => {
-    setSelectedYear(currentYear);
-    search({
-      search: searchQuery || undefined,
-      billingStatus: billingStatus === 'all' ? undefined : billingStatus,
-      year: currentYear,
     });
   };
 
   // フィルターリセット
   const resetFilters = () => {
     setSearchQuery('');
-    setBillingStatus('all');
     setSelectedYear('all');
     search({});
   };
-
-  // 今年の請求対象者サマリ（件数・金額ともサーバ全件集計の yearlyStats を優先）
-  // items はページ制限（backend デフォルト limit=50）された先頭分のみのため、
-  // items 由来の集計は statsRow 不在時のフォールバックに限定する（#226）
-  const currentYearSummary = useMemo(() => {
-    const statsRow = yearlyStats?.find(s => s.year === currentYear);
-    const itemsThisYear = items.filter(item => {
-      if (!item.billingScheduledDate) return false;
-      return new Date(item.billingScheduledDate).getFullYear() === currentYear;
-    });
-
-    const totalCount = statsRow?.count ?? itemsThisYear.length;
-    const pendingCount = statsRow?.pendingCount ?? itemsThisYear.filter(i => i.billingStatus === 'pending').length;
-    const billedCount = statsRow?.billedCount ?? itemsThisYear.filter(i => i.billingStatus === 'billed').length;
-    const paidCount = statsRow?.paidCount ?? itemsThisYear.filter(i => i.billingStatus === 'paid').length;
-
-    const totalAmount = statsRow?.totalAmount
-      ?? itemsThisYear.reduce((sum, i) => sum + (i.billingAmount ?? 0), 0);
-    const paidAmount = statsRow?.paidAmount
-      ?? itemsThisYear
-        .filter(i => i.billingStatus === 'paid')
-        .reduce((sum, i) => sum + (i.billingAmount ?? 0), 0);
-    const outstandingAmount = totalAmount - paidAmount;
-
-    const paidRate = totalCount > 0 ? Math.round((paidCount / totalCount) * 100) : 0;
-
-    return {
-      totalCount,
-      pendingCount,
-      billedCount,
-      paidCount,
-      totalAmount,
-      paidAmount,
-      outstandingAmount,
-      paidRate,
-    };
-  }, [items, yearlyStats, currentYear]);
 
   // 年別グループ化
   const groupedByYear = useMemo(() => {
@@ -178,7 +157,7 @@ export default function CollectiveBurialListView({
     <div className="flex-1 flex flex-col overflow-hidden">
       <PageHeader
         title="合祀管理"
-        subtitle="合祀区画の請求・埋葬管理"
+        subtitle="合祀する人と、合祀する年"
         theme="cha"
         icon={
           <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -192,12 +171,7 @@ export default function CollectiveBurialListView({
         {/* 凡例 + アクションボタン */}
         <div className="flex items-center px-3 md:px-6 py-2 md:py-3 border-b border-gin bg-kinari">
           <div className="flex-1 flex flex-wrap items-center gap-2 md:gap-3 text-sm">
-            {/* 凡例（クリック不可・色の意味の説明）。請求状況の絞り込みは下の「請求ステータス」で行う */}
-            <span className="text-xs text-hai font-medium shrink-0">凡例:</span>
-            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">請求前</span>
-            <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">請求済</span>
-            <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">支払済</span>
-            <span className="text-xs text-hai">合祀年「*」= 請求予定日が未確定のため、埋葬日＋有効年数で自動計算した見込み年（請求金額も未確定）</span>
+            <span className="text-xs text-hai">合祀年「*」= 合祀の年がまだ決まっていないため、埋葬した日に年数を足した見込みの年です</span>
             <span className="text-xs text-hai">／ 区画番号クリックで台帳詳細へ</span>
           </div>
           <div className="flex-shrink-0 flex items-center space-x-2">
@@ -212,9 +186,37 @@ export default function CollectiveBurialListView({
           </div>
         </div>
 
+        <div className="px-3 md:px-6 py-3 border-b border-gin bg-white">
+          <p className="text-sm font-medium text-sumi">一斉に解約する日</p>
+          <p className="mt-1 text-xs text-hai">
+            合祀の年になった人は、選んだ日を過ぎてこの画面を開くと、契約が解約されて区画が空きます。最初は10月1日です。今年より前の人は、ここでは自動では空にしません。
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={releaseTiming === 'obon' ? 'default' : 'outline'}
+              className="h-8 text-xs"
+              onClick={() => void changeReleaseTiming('obon')}
+            >
+              お盆（8月13日）
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={releaseTiming === 'october' ? 'default' : 'outline'}
+              className="h-8 text-xs"
+              onClick={() => void changeReleaseTiming('october')}
+            >
+              10月1日
+            </Button>
+          </div>
+          {releaseMessage && <p className="mt-2 text-xs text-sumi">{releaseMessage}</p>}
+        </div>
+
         {/* フィルターエリア */}
         <div className="bg-white border-b border-gin px-3 md:px-6 py-3 md:py-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
             {/* 検索キーワード */}
             <div>
               <Label className="text-xs md:text-sm font-medium text-sumi mb-1 block">検索</Label>
@@ -228,28 +230,9 @@ export default function CollectiveBurialListView({
               />
             </div>
 
-            {/* 請求ステータス */}
+            {/* 合祀する年 */}
             <div>
-              <Label className="text-xs md:text-sm font-medium text-sumi mb-1 block">請求ステータス</Label>
-              <Select
-                value={billingStatus}
-                onValueChange={(v) => setBillingStatus(v as BillingStatus | 'all')}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="すべて" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべて</SelectItem>
-                  <SelectItem value="pending">請求前</SelectItem>
-                  <SelectItem value="billed">請求済</SelectItem>
-                  <SelectItem value="paid">支払済</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 請求予定年 */}
-            <div>
-              <Label className="text-xs md:text-sm font-medium text-sumi mb-1 block">請求予定年</Label>
+              <Label className="text-xs md:text-sm font-medium text-sumi mb-1 block">合祀する年</Label>
               <Select
                 value={String(selectedYear)}
                 onValueChange={(v) => setSelectedYear(v === 'all' ? 'all' : parseInt(v))}
@@ -301,14 +284,9 @@ export default function CollectiveBurialListView({
                   検索「{searchQuery}」
                 </span>
               )}
-              {billingStatus !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-cha-50 text-cha-800 border border-cha-200 rounded-full font-medium">
-                  請求状況: {BILLING_STATUS_LABELS[billingStatus as BillingStatus]}
-                </span>
-              )}
               {selectedYear !== 'all' && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-cha-50 text-cha-800 border border-cha-200 rounded-full font-medium">
-                  請求年: {selectedYear}年
+                  合祀する年: {selectedYear}年
                 </span>
               )}
               <button
@@ -320,124 +298,6 @@ export default function CollectiveBurialListView({
               </button>
             </div>
           )}
-        </div>
-
-        {/* 今年の請求対象者サマリカード */}
-        <div className="px-3 md:px-6 pt-3 md:pt-6">
-          <div className="bg-white rounded-elegant-lg shadow-elegant overflow-hidden border-2 border-matsu-300">
-            <div className="bg-gradient-matsu px-4 md:px-6 py-3 md:py-4 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-              <div className="relative flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 md:gap-3 min-w-0">
-                  <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap">
-                    今年
-                  </span>
-                  <h3 className="font-mincho text-base md:text-xl font-semibold text-white tracking-wide truncate">
-                    {currentYear}年 請求対象者
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={filterByCurrentYear}
-                  className="flex-shrink-0 bg-white text-matsu-700 hover:bg-matsu-50 transition-colors px-3 py-1 rounded-full text-xs font-semibold shadow-sm"
-                >
-                  今年のみ表示
-                </button>
-              </div>
-            </div>
-
-            {isLoading ? (
-              <div className="px-4 md:px-6 py-6 md:py-8 bg-white flex items-center justify-center text-hai text-sm">
-                <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-matsu mr-2" aria-hidden="true" />
-                集計中...
-              </div>
-            ) : currentYearSummary.totalCount === 0 ? (
-              <div className="px-4 md:px-6 py-4 md:py-6 bg-white">
-                <EmptyState
-                  container="plain"
-                  size="sm"
-                  icon={
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  }
-                  title={`${currentYear}年の請求対象者はいません`}
-                  description={
-                    hasActiveFilter && totalHits > 0
-                      ? `検索条件に一致する ${totalHits} 件は ${currentYear}年 以外の請求予定です。特定の年を見るには「請求予定年」で絞り込んでください。`
-                      : '合祀者の登録時に「初回請求年」を設定すると、該当年度にこの一覧へ表示されます。'
-                  }
-                />
-              </div>
-            ) : (
-              <div className="px-4 md:px-6 py-4 md:py-5">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                  {/* 件数サマリ */}
-                  <div>
-                    <div className="flex items-baseline gap-2 mb-2">
-                      <span className="text-3xl md:text-4xl font-bold text-matsu">
-                        {currentYearSummary.totalCount}
-                      </span>
-                      <span className="text-sm text-hai">件</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full font-medium">
-                        請求前 {currentYearSummary.pendingCount}
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-medium">
-                        請求済 {currentYearSummary.billedCount}
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-800 rounded-full font-medium">
-                        支払済 {currentYearSummary.paidCount}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 進捗バー */}
-                  <div>
-                    <div className="flex items-baseline justify-between mb-2">
-                      <span className="text-xs md:text-sm text-hai font-medium">入金完了率</span>
-                      <span className="text-xl md:text-2xl font-bold text-matsu">
-                        {currentYearSummary.paidRate}
-                        <span className="text-sm text-hai ml-0.5">%</span>
-                      </span>
-                    </div>
-                    <div className="w-full bg-kinari rounded-full h-3 overflow-hidden border border-gin">
-                      <div
-                        className="h-full bg-gradient-to-r from-matsu-400 to-matsu transition-all duration-500"
-                        style={{ width: `${currentYearSummary.paidRate}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-hai mt-1">
-                      {currentYearSummary.paidCount} / {currentYearSummary.totalCount} 件入金済
-                    </p>
-                  </div>
-
-                  {/* 金額サマリ */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-xs md:text-sm text-hai">請求総額</span>
-                      <span className="text-sm md:text-base font-semibold text-sumi">
-                        ¥{currentYearSummary.totalAmount.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-xs md:text-sm text-hai">入金済額</span>
-                      <span className="text-sm md:text-base font-semibold text-green-700">
-                        ¥{currentYearSummary.paidAmount.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-baseline pt-1 border-t border-gin">
-                      <span className="text-xs md:text-sm text-hai">未収額</span>
-                      <span className="text-sm md:text-base font-semibold text-red-700">
-                        ¥{currentYearSummary.outstandingAmount.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* メインコンテンツ */}
@@ -463,18 +323,17 @@ export default function CollectiveBurialListView({
               }
               title="該当する合祀データが見つかりませんでした"
               description={
-                (searchQuery || billingStatus !== 'all' || selectedYear !== 'all')
-                  ? '検索語・請求状況・請求年の条件を緩めて再検索してください。'
+                hasActiveFilter
+                  ? '検索語か、合祀する年の条件を緩めて再検索してください。'
                   : 'まだ合祀者が登録されていません。台帳の区画編集→「埋葬情報」タブの「合祀対象区画」から登録できます。'
               }
               action={
-                (searchQuery || billingStatus !== 'all' || selectedYear !== 'all') ? (
+                hasActiveFilter ? (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
                       setSearchQuery('');
-                      setBillingStatus('all');
                       setSelectedYear('all');
                       search({});
                     }}
@@ -508,7 +367,7 @@ export default function CollectiveBurialListView({
                             </span>
                           )}
                           <h3 className="font-mincho text-xl font-semibold text-white tracking-wide truncate">
-                            {group.year === 0 ? '請求予定日未設定' : `${group.year}年 請求予定`}
+                            {group.year === 0 ? '合祀の年が未設定' : `${group.year}年の合祀`}
                           </h3>
                         </div>
                         <span className={`px-4 py-1.5 rounded-full text-sm font-semibold shadow-sm whitespace-nowrap ${isCurrentYear ? 'bg-white text-matsu-700' : 'bg-white text-cha'
@@ -518,7 +377,7 @@ export default function CollectiveBurialListView({
                       </div>
                       {group.year === 0 && (
                         <p className="relative mt-1.5 text-xs text-white/85">
-                          請求予定日（確定値）が未設定のグループです。合祀年「*」は埋葬日＋有効年数の見込み値で、請求予定日・請求金額はまだ確定していません。
+                          合祀の年がまだ決まっていない人です。合祀年の「*」は、埋葬した日に年数を足した見込みです。
                         </p>
                       )}
                     </div>
@@ -536,9 +395,6 @@ export default function CollectiveBurialListView({
                             <th className="text-center px-2 md:px-4 py-3 text-sm font-semibold text-sumi hidden md:table-cell" style={{ width: '80px' }}>経過年数</th>
                             <th className="text-center px-2 md:px-4 py-3 text-sm font-semibold text-sumi hidden lg:table-cell" style={{ width: '80px' }}>合祀年</th>
                             <th className="text-center px-2 md:px-4 py-3 text-sm font-semibold text-sumi hidden lg:table-cell" style={{ width: '80px' }}>埋葬上限</th>
-                            <th className="text-right px-2 md:px-4 py-3 text-sm font-semibold text-sumi hidden sm:table-cell" style={{ width: '100px' }}>請求金額</th>
-                            <th className="text-left px-2 md:px-4 py-3 text-sm font-semibold text-sumi hidden lg:table-cell" style={{ width: '120px' }}>備考</th>
-                            <th className="text-center px-2 md:px-4 py-3 text-sm font-semibold text-sumi" style={{ width: '90px' }}>ステータス</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gin">
@@ -632,30 +488,6 @@ export default function CollectiveBurialListView({
                                 <td className="px-2 md:px-4 py-3 text-center text-sm text-sumi hidden lg:table-cell">
                                   {record.burialCapacity}
                                 </td>
-                                <td className="px-2 md:px-4 py-3 text-right text-sm hidden sm:table-cell">
-                                  {record.billingAmount != null ? (
-                                    <span className="text-sumi">¥{record.billingAmount.toLocaleString()}</span>
-                                  ) : (
-                                    <span
-                                      className="text-hai"
-                                      title={
-                                        record.billingScheduledDate
-                                          ? '請求金額が未入力です（要入力）'
-                                          : '請求予定日が未設定のため、請求金額は未確定です'
-                                      }
-                                    >
-                                      未設定
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-2 md:px-4 py-3 text-sm text-hai truncate hidden lg:table-cell">
-                                  {record.notes || '-'}
-                                </td>
-                                <td className="px-2 md:px-4 py-3 text-center">
-                                  <span className={`px-2 py-1 rounded text-xs font-medium ${BILLING_STATUS_COLORS[record.billingStatus as BillingStatus]}`}>
-                                    {BILLING_STATUS_LABELS[record.billingStatus as BillingStatus]}
-                                  </span>
-                                </td>
                               </tr>
                             );
                           })}
@@ -680,12 +512,7 @@ export default function CollectiveBurialListView({
               {yearlyStats.slice(0, 5).map(stat => (
                 <span key={stat.year} className="text-xs md:text-sm bg-kinari px-2 md:px-3 py-1 rounded-full border border-gin">
                   <span className="font-semibold text-sumi">{stat.year}年</span>
-                  <span className="text-hai ml-1">
-                    {stat.count}件
-                    <span className="text-xs ml-1 hidden sm:inline">
-                      (前{stat.pendingCount}/済{stat.billedCount}/払{stat.paidCount})
-                    </span>
-                  </span>
+                  <span className="text-hai ml-1">{stat.count}件</span>
                 </span>
               ))}
             </div>

@@ -193,7 +193,7 @@ function buildAutoFillData(
     }
     case 'permit': {
       const now = new Date();
-      base.permitNumber = plotDetail.permitNumber || '';
+      base.permitNumber = plotDetail.acceptanceNumber || plotDetail.permitNumber || '';
       base.permitType = '普通墓地';
       base.plotNumber = `${plot.areaName} ${plot.displayNumber || plot.plotNumber}`;
       if (plot.areaSqm) base.area = String(plot.areaSqm);
