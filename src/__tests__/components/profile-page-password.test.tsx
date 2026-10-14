@@ -79,6 +79,32 @@ describe('ProfilePage パスワード変更 (#229)', () => {
     expect(changePasswordMock).not.toHaveBeenCalled();
   });
 
+  it('メールを変えるときは今のパスワードを一緒に送る', async () => {
+    updateProfileMock.mockResolvedValue({ success: true });
+    const user = userEvent.setup();
+    render(<ProfilePage onBack={() => {}} />);
+
+    await user.click(screen.getByRole('button', { name: '編集' }));
+    const email = screen.getByLabelText('メールアドレス');
+    await user.clear(email);
+    await user.type(email, 'new@example.com');
+    await user.click(screen.getByRole('button', { name: '保存' }));
+
+    expect(screen.getByText('メールアドレスを変えるには、今のパスワードを入力してください')).toBeInTheDocument();
+    expect(updateProfileMock).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText('今のパスワード'), 'OldPass123');
+    await user.click(screen.getByRole('button', { name: '保存' }));
+    await user.click(screen.getByRole('button', { name: '更新する' }));
+
+    await waitFor(() => {
+      expect(updateProfileMock).toHaveBeenCalledWith({
+        email: 'new@example.com',
+        currentPassword: 'OldPass123',
+      });
+    });
+  });
+
   it('成功時は入力フィールドがクリアされる', async () => {
     render(<ProfilePage onBack={() => {}} />);
     await fillAndSubmit('OldPass123', 'NewPass123', 'NewPass123');

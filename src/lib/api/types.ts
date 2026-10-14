@@ -123,6 +123,8 @@ export interface ChangePasswordRequest {
 export interface UpdateProfileRequest {
   name?: string;
   email?: string;
+  /** メールアドレスを変えるときだけ送る。今のパスワードが合っているかの確認 */
+  currentPassword?: string;
 }
 
 // ===== 顧客/区画検索 =====
