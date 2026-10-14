@@ -28,6 +28,7 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [profileCurrentPassword, setProfileCurrentPassword] = useState('');
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showProfileConfirm, setShowProfileConfirm] = useState(false);
 
@@ -40,14 +41,19 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   const startEditing = () => {
     setEditName(user?.name || '');
     setEditEmail(user?.email || '');
+    setProfileCurrentPassword('');
     setProfileError(null);
     setIsEditingProfile(true);
   };
 
   const cancelEditing = () => {
     setIsEditingProfile(false);
+    setProfileCurrentPassword('');
     setProfileError(null);
   };
+
+  const emailChanged =
+    editEmail.trim().toLowerCase() !== (user?.email || '').trim().toLowerCase();
 
   const handleProfileSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -69,8 +75,13 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
       return;
     }
 
-    // 変更がない場合は何もしない
-    if (editName === user?.name && editEmail === user?.email) {
+    if (emailChanged && !profileCurrentPassword) {
+      setProfileError('メールアドレスを変えるには、今のパスワードを入力してください');
+      return;
+    }
+
+    // 変更がない場合は何もしない（大文字だけの差はメール変更にしない）
+    if (editName.trim() === user?.name && !emailChanged) {
       setIsEditingProfile(false);
       return;
     }
@@ -80,14 +91,18 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   };
 
   const executeProfileUpdate = async () => {
-    const request: { name?: string; email?: string } = {};
+    const request: { name?: string; email?: string; currentPassword?: string } = {};
     if (editName.trim() !== user?.name) request.name = editName.trim();
-    if (editEmail.trim() !== user?.email) request.email = editEmail.trim();
+    if (emailChanged) {
+      request.email = editEmail.trim();
+      request.currentPassword = profileCurrentPassword;
+    }
 
     const result = await updateProfile(request);
 
     if (result.success) {
       setIsEditingProfile(false);
+      setProfileCurrentPassword('');
     } else if (result.error) {
       setProfileError(result.error);
     }
@@ -208,6 +223,22 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
                       autoComplete="email"
                     />
                   </div>
+                  {emailChanged && (
+                    <div>
+                      <Label htmlFor="profile-current-password">今のパスワード</Label>
+                      <Input
+                        id="profile-current-password"
+                        type="password"
+                        value={profileCurrentPassword}
+                        onChange={(e) => setProfileCurrentPassword(e.target.value)}
+                        className="mt-1"
+                        autoComplete="current-password"
+                      />
+                      <p className="text-xs text-hai mt-1">
+                        メールアドレスを変えるときだけ必要です。今のパスワードが合っているか確認します。
+                      </p>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-hai text-sm">権限</Label>
@@ -303,7 +334,7 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
             description={
               [
                 editName.trim() !== user?.name && `名前: ${user?.name} → ${editName.trim()}`,
-                editEmail.trim() !== user?.email && `メールアドレス: ${user?.email} → ${editEmail.trim()}`,
+                emailChanged && `メールアドレス: ${user?.email} → ${editEmail.trim()}`,
               ]
                 .filter(Boolean)
                 .join('\n')

@@ -228,8 +228,33 @@ async function mockUpdateProfile(
     };
   }
 
+  const nextEmail = request.email?.trim().toLowerCase();
+  const emailChanged = Boolean(
+    nextEmail && nextEmail !== mockCurrentUser.email.trim().toLowerCase()
+  );
+  if (emailChanged) {
+    const user = MOCK_USERS.find((u) => u.id === mockCurrentUser!.id);
+    if (!request.currentPassword) {
+      return {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'メールアドレスを変更するには現在のパスワードが必要です',
+        },
+      };
+    }
+    if (!user || user.password !== request.currentPassword) {
+      return {
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: '現在のパスワードが正しくありません',
+        },
+      };
+    }
+    mockCurrentUser.email = nextEmail!;
+  }
   if (request.name !== undefined) mockCurrentUser.name = request.name;
-  if (request.email !== undefined) mockCurrentUser.email = request.email;
 
   return { success: true, data: { ...mockCurrentUser } };
 }
