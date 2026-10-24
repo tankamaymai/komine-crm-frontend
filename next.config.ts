@@ -13,14 +13,14 @@ const nextConfig: NextConfig = {
   experimental: {
     proxyTimeout: 180_000,
   },
-  webpack: (config) => {
-    // @komine/types がシンボリンク経由で参照される際、
-    // zod をフロントエンドの node_modules から解決する
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      zod: path.resolve(__dirname, 'node_modules/zod'),
-    };
-    return config;
+  // Next.js 16 からは組み立てに Turbopack を使う。
+  // 共有の型（../packages/types）は画面フォルダの外にあるので、そこまで探せるようにする。
+  // zod は画面側の node_modules から解決する（型パッケージがシンボリンクのため）。
+  turbopack: {
+    root: path.join(__dirname, ".."),
+    resolveAlias: {
+      zod: "./node_modules/zod",
+    },
   },
   async rewrites() {
     return [

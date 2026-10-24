@@ -1,7 +1,6 @@
 /**
  * 空き区画の範囲一括登録ダイアログ（議事録 2026-07-21 §6）
  */
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';

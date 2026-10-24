@@ -2,7 +2,7 @@
 # ============================================
 # Stage 0: Build @komine/types
 # ============================================
-FROM node:20-alpine AS types
+FROM node:24-alpine AS types
 
 RUN apk add --no-cache git
 
@@ -22,7 +22,7 @@ RUN git clone https://github.com/zaitsu82/komine-types.git . && \
 # ============================================
 # Stage 1: Dependencies
 # ============================================
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 
 WORKDIR /app
 
@@ -39,7 +39,7 @@ RUN npm ci
 # ============================================
 # Stage 2: Build
 # ============================================
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -63,7 +63,7 @@ RUN npm run build
 # ============================================
 # Stage 3: Production (next.config.ts の output: 'standalone' を使用)
 # ============================================
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 
 WORKDIR /app
 

@@ -6,7 +6,6 @@
  *   「台帳問い合わせ」ではなく「書類管理」がアクティブになる
  */
 
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import GlobalSidebar from '@/components/layout/GlobalSidebar';

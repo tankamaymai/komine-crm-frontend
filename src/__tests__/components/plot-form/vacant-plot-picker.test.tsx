@@ -4,7 +4,6 @@
  * 手入力を不可にして空き区画から選ばせる。空き区画は実データで約2,500件、
  * 単一の区画名でも最大647件あるため、区画名で絞ってから番号で絞り込む前提。
  */
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';

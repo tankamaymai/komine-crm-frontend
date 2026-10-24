@@ -10,11 +10,12 @@
 
 ## プロジェクト概要
 
-Next.js 15 + React 19 + TypeScript で構築されたCRMフロントエンド。
+Next.js 16 + React 19 + TypeScript で構築されたCRMフロントエンド。Node.js 24 で動かす。
 
 ## 技術スタック
 
-- **フレームワーク**: Next.js 15 (App Router)
+- **フレームワーク**: Next.js 16 (App Router)
+- **実行環境**: Node.js 24
 - **UI**: React 19, Tailwind CSS, Radix UI
 - **状態管理**: React Context + カスタムフック
 - **フォーム**: React Hook Form + Zod
