@@ -1,63 +1,93 @@
 /**
- * 請求 (Billing) フォームバリデーション
- *
- * バックエンド `src/validations/billingValidation.ts` と整合。
+ * 請求フォームの入力を、共通の1枚（@komine/types）で確かめる。
+ * 画面独自のルールは持たない。
  */
 
-import { z } from 'zod';
-import { BillingCategory, BillingRecordStatus } from '@komine/types';
+import {
+  BillingCategory,
+  BillingRecordStatus,
+  createBillingSchema,
+  updateBillingSchema,
+  type CreateBillingInput,
+  type UpdateBillingInput,
+} from '@komine/types';
 
-const dateString = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, '日付は YYYY-MM-DD 形式で入力してください')
-  .optional()
-  .or(z.literal(''));
+export interface BillingFormDraft {
+  contractPlotId: string;
+  customerId: string;
+  category: BillingCategory;
+  amount: string;
+  useStartYear: string;
+  useEndYear: string;
+  targetMonth: string;
+  billingYears: string;
+  contractDate: string;
+  billingDate: string;
+  applicationType: string;
+  billingType: string;
+  status: BillingRecordStatus;
+  terminated: boolean;
+  terminatedDate: string;
+  notes: string;
+}
 
-const optionalInt = (min?: number, max?: number) =>
-  z
-    .union([z.number().int(), z.literal('').transform(() => undefined), z.literal('').optional()])
-    .optional()
-    .nullable()
-    .refine((v) => v === undefined || v === null || v === '' || (typeof v === 'number' && (min === undefined || v >= min) && (max === undefined || v <= max)), {
-      message: `数値の範囲外です${min !== undefined ? ` (最小: ${min})` : ''}${max !== undefined ? ` (最大: ${max})` : ''}`,
-    });
+export type BillingFormResult =
+  | { ok: true; data: CreateBillingInput | UpdateBillingInput }
+  | { ok: false; message: string };
 
-export const billingFormSchema = z.object({
-  contractPlotId: z.string().uuid('契約区画 ID を選択してください'),
-  customerId: z.string().uuid('顧客 ID を選択してください'),
-  category: z.nativeEnum(BillingCategory),
-  amount: z.number().int().nonnegative('金額は 0 円以上で入力してください'),
-  useStartYear: optionalInt(1900, 2999),
-  useEndYear: optionalInt(1900, 2999),
-  targetMonth: optionalInt(1, 12),
-  billingYears: optionalInt(1, 100),
-  contractDate: dateString,
-  billingDate: dateString,
-  applicationType: optionalInt(),
-  billingType: optionalInt(),
-  status: z.nativeEnum(BillingRecordStatus).optional(),
-  terminated: z.boolean().optional(),
-  terminatedDate: dateString,
-  notes: z.string().max(2000, '備考は 2000 文字以内で入力してください').optional().nullable().or(z.literal('')),
-});
+function blankToNull(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
 
-export type BillingFormValues = z.infer<typeof billingFormSchema>;
+/** 空は null。整数以外（1.5 など）はそのまま渡して、共通ルールに止めてもらう。 */
+function optionalNumber(value: string): number | null | string {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^-?\d+$/.test(trimmed)) return Number(trimmed);
+  const asNumber = Number(trimmed);
+  return Number.isFinite(asNumber) ? asNumber : trimmed;
+}
 
-export const DEFAULT_BILLING_FORM_VALUES: BillingFormValues = {
-  contractPlotId: '',
-  customerId: '',
-  category: BillingCategory.UsageFee,
-  amount: 0,
-  useStartYear: null,
-  useEndYear: null,
-  targetMonth: null,
-  billingYears: null,
-  contractDate: '',
-  billingDate: '',
-  applicationType: null,
-  billingType: null,
-  status: BillingRecordStatus.Pending,
-  terminated: false,
-  terminatedDate: '',
-  notes: '',
-};
+function requiredAmount(value: string): number | undefined | string {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (/^-?\d+$/.test(trimmed)) return Number(trimmed);
+  const asNumber = Number(trimmed);
+  return Number.isFinite(asNumber) ? asNumber : trimmed;
+}
+
+export function parseBillingForm(draft: BillingFormDraft, mode: 'create' | 'update'): BillingFormResult {
+  const common = {
+    category: draft.category,
+    amount: requiredAmount(draft.amount),
+    useStartYear: optionalNumber(draft.useStartYear),
+    useEndYear: optionalNumber(draft.useEndYear),
+    targetMonth: optionalNumber(draft.targetMonth),
+    billingYears: optionalNumber(draft.billingYears),
+    contractDate: blankToNull(draft.contractDate),
+    billingDate: blankToNull(draft.billingDate),
+    applicationType: optionalNumber(draft.applicationType),
+    billingType: optionalNumber(draft.billingType),
+    status: draft.status,
+    notes: blankToNull(draft.notes),
+  };
+
+  const parsed =
+    mode === 'create'
+      ? createBillingSchema.safeParse({
+          contractPlotId: draft.contractPlotId.trim(),
+          customerId: draft.customerId.trim(),
+          ...common,
+        })
+      : updateBillingSchema.safeParse({
+          ...common,
+          terminated: draft.terminated,
+          terminatedDate: blankToNull(draft.terminatedDate),
+        });
+
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? '入力を確認してください' };
+  }
+  return { ok: true, data: parsed.data };
+}

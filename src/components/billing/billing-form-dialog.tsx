@@ -11,6 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BILLING_CATEGORY_LABELS, BILLING_RECORD_STATUS_LABELS } from '@/lib/api/billings';
+import { parseBillingForm, type BillingFormDraft } from '@/lib/validations/billing-form';
 
 export interface BillingFormDialogProps {
   open: boolean;
@@ -24,24 +25,7 @@ export interface BillingFormDialogProps {
   isSubmitting?: boolean;
 }
 
-interface FormState {
-  contractPlotId: string;
-  customerId: string;
-  category: BillingCategory;
-  amount: string;
-  useStartYear: string;
-  useEndYear: string;
-  targetMonth: string;
-  billingYears: string;
-  contractDate: string;
-  billingDate: string;
-  applicationType: string;
-  billingType: string;
-  status: BillingRecordStatus;
-  terminated: boolean;
-  terminatedDate: string;
-  notes: string;
-}
+type FormState = BillingFormDraft;
 
 const emptyState = (preset?: { contractPlotId?: string; customerId?: string }): FormState => ({
   contractPlotId: preset?.contractPlotId ?? '',
@@ -81,15 +65,6 @@ const fromBilling = (b: Billing): FormState => ({
   notes: b.notes ?? '',
 });
 
-const parseIntOrNull = (s: string): number | null => {
-  const t = s.trim();
-  if (!t) return null;
-  const n = parseInt(t, 10);
-  return Number.isFinite(n) ? n : null;
-};
-
-const dateOrNull = (s: string): string | null => (s.trim() ? s.trim() : null);
-
 export function BillingFormDialog({
   open,
   onClose,
@@ -122,50 +97,15 @@ export function BillingFormDialog({
   const isEdit = Boolean(editing);
 
   const handleSubmit = async () => {
-    if (!isEdit && !state.contractPlotId.trim()) {
-      setFormError('契約区画 ID を入力してください');
-      return;
-    }
-    if (!isEdit && !state.customerId.trim()) {
-      setFormError('顧客 ID を入力してください');
-      return;
-    }
-    const amountNum = parseIntOrNull(state.amount);
-    if (amountNum === null || amountNum < 0) {
-      setFormError('金額は 0 円以上の整数で入力してください');
+    const parsed = parseBillingForm(state, isEdit ? 'update' : 'create');
+    if (!parsed.ok) {
+      setFormError(parsed.message);
       return;
     }
     setFormError('');
 
-    const common = {
-      category: state.category,
-      amount: amountNum,
-      useStartYear: parseIntOrNull(state.useStartYear),
-      useEndYear: parseIntOrNull(state.useEndYear),
-      targetMonth: parseIntOrNull(state.targetMonth),
-      billingYears: parseIntOrNull(state.billingYears),
-      contractDate: dateOrNull(state.contractDate),
-      billingDate: dateOrNull(state.billingDate),
-      applicationType: parseIntOrNull(state.applicationType),
-      billingType: parseIntOrNull(state.billingType),
-      status: state.status,
-      notes: state.notes.trim() ? state.notes.trim() : null,
-    };
-
-    const data: CreateBillingRequest | UpdateBillingRequest = isEdit
-      ? {
-          ...common,
-          terminated: state.terminated,
-          terminatedDate: dateOrNull(state.terminatedDate),
-        }
-      : {
-          contractPlotId: state.contractPlotId.trim(),
-          customerId: state.customerId.trim(),
-          ...common,
-        };
-
     try {
-      await onSubmit(data);
+      await onSubmit(parsed.data);
     } catch (e) {
       setFormError(e instanceof Error ? e.message : '保存に失敗しました');
     }
