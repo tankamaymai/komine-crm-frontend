@@ -6,7 +6,7 @@
 
 ## 技術スタック
 
-- **Next.js 15.5**（App Router）/ **React 19**
+- **Next.js 16.4**（App Router）/ **React 19** / **Node.js 24**
 - **TypeScript**
 - **Tailwind CSS** + **shadcn/ui**（Radix ベース）
 - **React Hook Form** + **Zod**（フォーム・バリデーション）

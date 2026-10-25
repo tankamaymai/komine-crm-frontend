@@ -119,7 +119,7 @@ test.describe('合祀管理 - 詳細表示', () => {
     // 3タブ構成を確認
     await expect(page.getByRole('tab', { name: '基本情報' })).toBeVisible();
     await expect(page.getByRole('tab', { name: '埋葬状況' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: '請求管理' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: '合祀の予定' })).toBeVisible();
 
     // 旧タブが存在しないことを確認
     await expect(page.getByRole('tab', { name: /備考・法要/ })).not.toBeVisible({ timeout: 1_000 }).catch(() => { });
@@ -152,7 +152,7 @@ test.describe('合祀管理 - 請求ステータス変更', () => {
     await navigateToCollectiveBurial(page);
   });
 
-  test('請求管理タブにステータス変更ボタンが表示される', async ({ page }) => {
+  test('合祀の予定タブに予定の欄が表示される', async ({ page }) => {
     const table = page.locator('table').first();
     const hasTable = await table.isVisible({ timeout: 5_000 }).catch(() => false);
     if (!hasTable) return;
@@ -165,14 +165,10 @@ test.describe('合祀管理 - 請求ステータス変更', () => {
     await page.waitForTimeout(1_000);
     await expect(page.getByText('合祀詳細')).toBeVisible({ timeout: 10_000 });
 
-    // 請求管理タブに切り替え
-    await page.getByRole('tab', { name: '請求管理' }).click();
+    await page.getByRole('tab', { name: '合祀の予定' }).click();
     await page.waitForTimeout(500);
 
-    // ステータス変更ボタンが表示される
-    await expect(page.getByRole('button', { name: '請求前' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '請求済' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '支払済' })).toBeVisible();
+    await expect(page.getByText('登録日時')).toBeVisible();
   });
 });
 

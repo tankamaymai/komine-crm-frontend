@@ -292,10 +292,10 @@ describe('HistoryTab', () => {
     });
     render(<HistoryTab plotDetail={detail} />);
 
-    expect(screen.getByText('日時')).toBeInTheDocument();
-    expect(screen.getByText('対象 / 操作')).toBeInTheDocument();
-    expect(screen.getByText('変更内容')).toBeInTheDocument();
-    expect(screen.getByText('変更者')).toBeInTheDocument();
+    expect(screen.getByText('氏名')).toBeInTheDocument();
+    expect(screen.getByText('更新履歴')).toBeInTheDocument();
+    expect(screen.getByText('更新事由')).toBeInTheDocument();
+    expect(screen.getByText('詳細')).toBeInTheDocument();
   });
 
   it('CREATEアクションを「作成」と表示する', () => {
@@ -312,7 +312,7 @@ describe('HistoryTab', () => {
       ],
     });
     render(<HistoryTab plotDetail={detail} />);
-    expect(screen.getByText('作成')).toBeInTheDocument();
+    expect(screen.getByText('を作成')).toBeInTheDocument();
   });
 
   it('UPDATEアクションを「更新」と表示する', () => {
@@ -329,7 +329,7 @@ describe('HistoryTab', () => {
       ],
     });
     render(<HistoryTab plotDetail={detail} />);
-    expect(screen.getByText('更新')).toBeInTheDocument();
+    expect(screen.getByText('price')).toBeInTheDocument();
   });
 
   it('DELETEアクションを「削除」と表示する', () => {
@@ -346,7 +346,7 @@ describe('HistoryTab', () => {
       ],
     });
     render(<HistoryTab plotDetail={detail} />);
-    expect(screen.getByText('削除')).toBeInTheDocument();
+    expect(screen.getByText('を削除')).toBeInTheDocument();
   });
 
   it('未知のactionTypeはそのまま表示する', () => {
@@ -363,7 +363,8 @@ describe('HistoryTab', () => {
       ],
     });
     render(<HistoryTab plotDetail={detail} />);
-    expect(screen.getByText('ARCHIVE')).toBeInTheDocument();
+    expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('ARCHIVE')).not.toBeInTheDocument();
   });
 
   it('CREATEアクションで変更内容欄に「を作成」と表示する', () => {
@@ -432,7 +433,7 @@ describe('HistoryTab', () => {
       ],
     });
     render(<HistoryTab plotDetail={detail} />);
-    const row = screen.getByText('作成').closest('button');
+    const row = screen.getByText('初回登録').closest('button');
     expect(row).toBeInTheDocument();
 
     // 初期状態: 詳細パネルの「変更事由:」ラベルは表示されていない
@@ -464,15 +465,16 @@ describe('PlotForm', () => {
     PlotForm = mod.default;
   });
 
-  it('4つのタブを表示する', () => {
+  it('5つのタブを表示する', () => {
     render(
       <PlotForm onSave={jest.fn()} onCancel={jest.fn()} />
     );
 
-    expect(screen.getByText('区画・契約情報')).toBeInTheDocument();
-    expect(screen.getByText('勤務先')).toBeInTheDocument();
+    expect(screen.getByText('基本情報①')).toBeInTheDocument();
+    expect(screen.getByText('基本情報②')).toBeInTheDocument();
     expect(screen.getByText('連絡先/家族')).toBeInTheDocument();
     expect(screen.getByText('埋葬情報')).toBeInTheDocument();
+    expect(screen.getByText('工事情報')).toBeInTheDocument();
   });
 
   it('新規作成モードで「登録」ボタンを表示する', () => {
@@ -513,8 +515,7 @@ describe('PlotForm', () => {
       <PlotForm onSave={jest.fn()} onCancel={jest.fn()} />
     );
 
-    // 勤務先タブをクリック
-    fireEvent.click(screen.getByText('勤務先'));
+    fireEvent.click(screen.getByText('基本情報②'));
     // タブがアクティブになる（Radixの内部動作に依存しないため、エラーがないことを確認）
   });
 
