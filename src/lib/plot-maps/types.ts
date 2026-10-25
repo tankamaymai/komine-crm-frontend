@@ -1,6 +1,6 @@
 export type PlotMapId = string;
 
-export type PlotMapStatus = 'vacant' | 'reserved' | 'contracted' | 'unsellable';
+export type PlotMapStatus = 'vacant' | 'reserved' | 'contracted' | 'unsellable' | 'unknown';
 
 export type PlotMapOverlayStatus = 'vacant' | 'reserved' | 'contracted';
 

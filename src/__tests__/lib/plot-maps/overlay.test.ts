@@ -57,6 +57,12 @@ describe('findMapId / hasPlotMap', () => {
     expect(findMapId('第3期樹林部', '天空K')).toBe('3-TENKU-K');
   });
 
+  it('第4期の凛C・凛Dも凛の地図に解決する', () => {
+    expect(findMapId('第4期', '凛A')).toBe('4-RIN');
+    expect(findMapId('第4期', '凛C')).toBe('4-RIN');
+    expect(findMapId('第4期', '凛Ｄ')).toBe('4-RIN');
+  });
+
   it('地図のない区は null', () => {
     expect(findMapId('第2期', '4')).toBeNull();
     expect(findMapId('第1期', 'Z')).toBeNull();
@@ -83,6 +89,30 @@ describe('matchLayoutCellToPlot', () => {
   it('全角の区名でも一致する', () => {
     expect(matchLayoutCellToPlot('97', '１', plot({ displayNumber: '1-97' }))).toBe(true);
   });
+
+  it('凛Aの台帳番号 43-6 は地図の A-43-6 に結びつく', () => {
+    expect(
+      matchLayoutCellToPlot(
+        'A-43-6',
+        '凛A',
+        plot({ displayNumber: '43-6', areaName: '凛A', overlayStatus: 'vacant' })
+      )
+    ).toBe(true);
+  });
+
+  it('吉相Cの台帳番号 5-1 は地図の C-5-1 に結びつく', () => {
+    expect(
+      matchLayoutCellToPlot(
+        'C-5-1',
+        '吉相C',
+        plot({ displayNumber: '5-1', areaName: '吉相C' })
+      )
+    ).toBe(true);
+  });
+
+  it('A区の3番を隣の E-3 と間違えない', () => {
+    expect(matchLayoutCellToPlot('E-3', 'A', plot({ displayNumber: '3', areaName: 'A' }))).toBe(false);
+  });
 });
 
 describe('deriveOverlayStatus', () => {
@@ -90,8 +120,8 @@ describe('deriveOverlayStatus', () => {
     expect(deriveOverlayStatus(plot({ overlayStatus: 'contracted' }), true)).toBe('unsellable');
   });
 
-  it('未マッチは空き', () => {
-    expect(deriveOverlayStatus(null, false)).toBe('vacant');
+  it('台帳と結びついていない番号は空きにしない', () => {
+    expect(deriveOverlayStatus(null, false)).toBe('unknown');
   });
 
   it('予約・契約済みをそのまま使う', () => {
@@ -126,6 +156,18 @@ describe('overlayLayoutWithPlots', () => {
       status: 'unsellable',
       displayLabel: '売却不可',
     });
+  });
+
+  it('同じ台帳を2マスに重ねない', () => {
+    const cells = overlayLayoutWithPlots(
+      [
+        { row: 0, col: 0, plotLabel: 'A-1-6' },
+        { row: 0, col: 1, plotLabel: 'A-1-6' },
+      ],
+      '凛A',
+      [plot({ id: 'pp-1', displayNumber: '1-6', areaName: '凛A', overlayStatus: 'vacant' })]
+    );
+    expect(cells.map((cell) => cell.status)).toEqual(['vacant', 'unknown']);
   });
 
   it('契約済みマスには姓を出す', () => {

@@ -29,6 +29,7 @@ const CELL_STYLE: Record<PlotMapStatus, string> = {
   reserved: 'bg-kohaku-50 border-kohaku text-kohaku-dark',
   contracted: 'bg-white border-gin text-sumi',
   unsellable: 'bg-yellow-100 border-yellow-400 text-hai',
+  unknown: 'bg-kinari border-dashed border-gin text-hai',
 };
 
 /** これ未満しか動かさずに離したときはクリック扱い */
@@ -127,6 +128,10 @@ export function PlotSectionMap({
   const selected =
     (selectedOrigin && cells.find((cell) => originKey(cell) === selectedOrigin)) || null;
   const cellRem = definition && (definition.rows > 40 || definition.columns > 28) ? 2.15 : 3.25;
+  const vacantCount = cells.filter((cell) => cell.status === 'vacant').length;
+  const reservedCount = cells.filter((cell) => cell.status === 'reserved').length;
+  const contractedCount = cells.filter((cell) => cell.status === 'contracted').length;
+  const unknownCount = cells.filter((cell) => cell.status === 'unknown').length;
 
   if (!definition) {
     return null;
@@ -231,7 +236,11 @@ export function PlotSectionMap({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-mincho text-lg font-semibold text-sumi">{definition.title} 区画図</h3>
-          <p className="mt-1 text-xs text-hai">緑が空き、黄が売却不可です。</p>
+          <p className="mt-1 text-sm text-sumi">
+            空き {vacantCount}件、予約 {reservedCount}件、契約 {contractedCount}件
+            {unknownCount > 0 ? `、台帳にない番号 ${unknownCount}件` : ''}
+          </p>
+          <p className="mt-1 text-xs text-hai">緑が空き、黄が売却不可です。灰色は台帳の区画と結びついていません。</p>
           <p className="mt-0.5 text-xs text-hai">
             空白をつかむと見る場所を動かせます。番号のマスをつかんで空いているマスに置くと、場所を移せます。
           </p>

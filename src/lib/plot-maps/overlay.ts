@@ -53,6 +53,14 @@ function normalizeId(value: string): string {
   return toHalfWidth(value).replace(/\s+/g, '').toUpperCase();
 }
 
+/** 凛A や 吉相C のように、区名の末尾の英字。A区そのものは対象にしない。 */
+export function zoneLetter(areaName: string): string | null {
+  const key = normalizeSectionKey(areaName);
+  const match = key.match(/^(.+)([A-Z])$/);
+  if (!match?.[1]) return null;
+  return match[2];
+}
+
 export function matchLayoutCellToPlot(
   plotLabel: string,
   section: string,
@@ -70,7 +78,15 @@ export function matchLayoutCellToPlot(
 
   const areaMatches = normalizeSectionKey(plot.areaName) === normalizeSectionKey(section);
   const labelOnly = normalizePlotLabel(plot.displayNumber ?? plot.plotNumber);
-  return areaMatches && labelOnly === normalizePlotLabel(plotLabel);
+  if (areaMatches && labelOnly === normalizePlotLabel(plotLabel)) {
+    return true;
+  }
+
+  // 地図は A-43-6、台帳は 43-6（区名 凛A）のように、先頭の英字だけ地図側に付く。
+  const zone = zoneLetter(plot.areaName);
+  const display = normalizePlotLabel(plot.displayNumber ?? '');
+  const label = normalizePlotLabel(plotLabel);
+  return !!zone && !!display && label === `${zone}-${display}`;
 }
 
 export function deriveOverlayStatus(
@@ -78,7 +94,7 @@ export function deriveOverlayStatus(
   unsellable: boolean
 ): PlotMapStatus {
   if (unsellable) return 'unsellable';
-  if (!plot) return 'vacant';
+  if (!plot) return 'unknown';
   return plot.overlayStatus;
 }
 
@@ -93,6 +109,7 @@ const STATUS_LABEL: Record<PlotMapStatus, string> = {
   reserved: '予約',
   contracted: '契約',
   unsellable: '売却不可',
+  unknown: '不明',
 };
 
 export function overlayLayoutWithPlots(
@@ -101,10 +118,15 @@ export function overlayLayoutWithPlots(
   plots: PlotMapOverlayPlot[]
 ): PlotMapCellView[] {
   const sections = Array.isArray(section) ? section : [section];
+  const usedPlotIds = new Set<string>();
   return cells.map((cell) => {
     const matched =
-      plots.find((plot) => sections.some((key) => matchLayoutCellToPlot(cell.plotLabel, key, plot))) ??
-      null;
+      plots.find(
+        (plot) =>
+          !usedPlotIds.has(plot.id) &&
+          sections.some((key) => matchLayoutCellToPlot(cell.plotLabel, key, plot))
+      ) ?? null;
+    if (matched) usedPlotIds.add(matched.id);
     const status = deriveOverlayStatus(matched, cell.unsellable === true);
     const contractorName = matched?.contractorName ?? null;
     const shortName = shortContractorName(contractorName);

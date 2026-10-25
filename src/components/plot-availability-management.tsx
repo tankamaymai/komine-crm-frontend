@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ClipboardList, Check, X, BarChart3, Hash, Layers, PieChart, Grid3X3, ChevronDown, ChevronUp, Plus, Map } from 'lucide-react';
+import { ClipboardList, Check, X, BarChart3, Hash, Layers, PieChart, Grid3X3, ChevronDown, ChevronUp, Plus, Map as MapIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { CreateVacantPlotDialog } from '@/components/create-vacant-plot-dialog';
 import { BulkCreateVacantPlotsDialog } from '@/components/bulk-create-vacant-plots-dialog';
 import { PlotMapSection } from '@/components/plot-map/PlotMapSection';
+import { VacantNumberBoard } from '@/components/plot-availability/vacant-number-board';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import MonthlyReportView from '@/components/plot-availability/monthly-report-view';
 import VacantLedgerView from '@/components/plot-availability/vacant-ledger-view';
@@ -86,7 +87,7 @@ export default function PlotAvailabilityManagement() {
   const areasHook = usePlotInventoryAreas();
   // 月次報告は開いたときだけ集計する（全区画を舐めるので初期表示では走らせない）
   const monthlyHook = usePlotInventoryMonthlyReport({ autoFetch: displayMode === 'monthly' });
-  const vacantHook = useVacantLedger({ autoFetch: displayMode === 'vacant' });
+  const vacantHook = useVacantLedger({ autoFetch: displayMode === 'section' || displayMode === 'vacant' });
   const salesHook = useSalesLedger({ autoFetch: displayMode === 'sales' });
   const isExcelSheet = displayMode === 'monthly' || displayMode === 'vacant' || displayMode === 'sales';
 
@@ -102,7 +103,7 @@ export default function PlotAvailabilityManagement() {
     sectionsHook.refresh();
     areasHook.refresh();
     if (displayMode === 'monthly') monthlyHook.refresh();
-    if (displayMode === 'vacant') vacantHook.refresh();
+    if (displayMode === 'section' || displayMode === 'vacant') vacantHook.refresh();
     if (displayMode === 'sales') salesHook.refresh();
   };
 
@@ -195,6 +196,15 @@ export default function PlotAvailabilityManagement() {
     sortOrder,
   );
   const displayAreaData = pickExact(areasHook.items, selectedPlotType, (item) => item.plotType);
+  const vacantBySection = useMemo(() => {
+    const map = new Map<string, { id: string; label: string; areaSqm: number }[]>();
+    for (const group of vacantHook.ledger?.groups ?? []) {
+      for (const area of group.areas) {
+        map.set(`${group.period}\0${area.areaName}`, area.plots);
+      }
+    }
+    return map;
+  }, [vacantHook.ledger]);
 
   const changePeriod = (period: SelectedPeriod) => {
     setSelectedPeriod(period);
@@ -430,10 +440,11 @@ export default function PlotAvailabilityManagement() {
 
         {displayMode === 'section' && (
           <div className="mx-3 md:mx-6 mt-3 flex items-start gap-2 rounded-elegant border border-matsu-200 bg-matsu-50 px-3 py-2 text-sm text-matsu-dark">
-            <Map className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <p>
-              各区の「地図を見る」から、Excel と同じ区画図で空きを確認できます。
-            </p>
+            <p>緑のマスが、空いている番号です。</p>
+            {vacantHook.isLoading && !vacantHook.ledger && (
+              <p className="text-hai">空き番号を集計中…</p>
+            )}
+            {vacantHook.error && <p className="text-beni">{vacantHook.error}</p>}
           </div>
         )}
 
@@ -819,7 +830,7 @@ export default function PlotAvailabilityManagement() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gin">
+                  <tbody>
                     {displayData.map((item, index) => {
                       // APIから直接usageRateを取得（フォールバック計算も維持）
                       const usageRate = item.usageRate ?? (item.totalCount > 0
@@ -834,15 +845,19 @@ export default function PlotAvailabilityManagement() {
                         '第4期': 'bg-kohaku-50 text-kohaku',
                       };
 
+                      const rowBg = selectedSection === item.section
+                        ? "bg-matsu-50"
+                        : index % 2 === 0 ? "bg-white" : "bg-shiro";
+                      const vacantPlots = vacantBySection.get(`${item.period}\0${item.section}`) ?? [];
+
                       return (
+                        <Fragment key={`${item.period}-${item.section}`}>
                         <tr
-                          key={`${item.period}-${item.section}`}
                           onClick={() => setSelectedSection(item.section)}
                           className={cn(
                             "cursor-pointer transition-colors hover:bg-kinari",
-                            selectedSection === item.section
-                              ? "bg-matsu-50"
-                              : index % 2 === 0 ? "bg-white" : "bg-shiro"
+                            rowBg,
+                            !vacantHook.ledger && "border-b border-gin"
                           )}
                         >
                           <td className="px-2 md:px-4 py-2 md:py-3 text-sm">
@@ -883,8 +898,8 @@ export default function PlotAvailabilityManagement() {
                                   }
                                 }}
                               >
-                                <Map className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                                地図を見る
+                                <MapIcon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                                地図
                               </Button>
                             ) : (
                               <span className="text-xs text-hai">-</span>
@@ -942,6 +957,14 @@ export default function PlotAvailabilityManagement() {
                             {remainingArea.toFixed(1)}
                           </td>
                         </tr>
+                        {vacantHook.ledger && (
+                          <tr className={cn(rowBg, "border-b border-gin")}>
+                            <td colSpan={9} className="px-3 pt-0 md:px-4">
+                              <VacantNumberBoard plots={vacantPlots} />
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       );
                     })}
                   </tbody>
