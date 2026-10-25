@@ -17,6 +17,7 @@ ARG TYPES_REF=1f84838347e11271896188c799315a3cc703bc8b
 RUN git clone https://github.com/zaitsu82/komine-types.git . && \
     git checkout ${TYPES_REF} && \
     npm ci && \
+    npm install zod@4.6.7 && \
     npm run build
 
 # ============================================
