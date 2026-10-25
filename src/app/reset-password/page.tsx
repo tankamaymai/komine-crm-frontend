@@ -2,14 +2,13 @@
 
 import { Suspense } from 'react'
 import { PasswordSetForm } from '@/components/password-set-form'
-import { GuestGuard } from '@/components/auth-guard'
 
 export default function ResetPasswordPage() {
+  // 再設定メールのリンクは、すでにログインしていても開く。
+  // ログイン中だとホームへ飛ばすと、新しいパスワードを決める画面が出ない。
   return (
-    <GuestGuard>
-      <Suspense>
-        <PasswordSetForm mode="reset" />
-      </Suspense>
-    </GuestGuard>
+    <Suspense>
+      <PasswordSetForm mode="reset" />
+    </Suspense>
   )
 }

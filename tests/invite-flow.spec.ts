@@ -5,7 +5,7 @@
  *
  * 検証範囲:
  *   - /set-password ページの静的挙動（コードなし・不正コード）
- *   - GuestGuard（ログイン済みユーザーが /set-password を開いた場合）
+ *   - ログイン済みでも招待リンク（code 付き）ならパスワード設定画面を開く
  *   - 実際の招待メール受信 → パスワード設定 → ログインの E2E は、
  *     Supabase のメール受信テスト環境（Inbucket / 本物のメールボックス等）が
  *     必要なため test.fixme() で保留。環境整備後に解放する。
@@ -65,19 +65,16 @@ test.describe('招待受諾フロー', () => {
     await context.close();
   });
 
-  // 94-4: ログイン済みユーザーが /set-password を直接開く → GuestGuard で / にリダイレクト
+  // 94-4: 別の人でログインしたまま招待リンクを開いても、パスワード設定画面が出る
   // auth-setup で生成した viewer の storageState を利用
-  test.describe('ログイン済みユーザーのガード', () => {
+  test.describe('ログイン済みでも招待リンクは開く', () => {
     test.use({ storageState: storageStatePath('viewer') });
 
-    test('94-4: ログイン済みで /set-password を開くと GuestGuard で / にリダイレクト', async ({ page }) => {
+    test('94-4: ログイン済みで招待リンクを開くとパスワード設定画面が出る', async ({ page }) => {
       await page.goto('/set-password?code=some-code');
 
-      // パスワード設定フォームではなくメイン画面が表示される
-      await expect(page.locator('h2').filter({ hasText: '小嶺霊園CRM' })).toBeVisible({
-        timeout: 15_000,
-      });
-      await expect(page.getByLabel('新しいパスワード')).not.toBeVisible();
+      await expect(page.getByLabel('新しいパスワード')).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole('button', { name: 'パスワードを設定' })).toBeVisible();
     });
   });
 
