@@ -117,11 +117,11 @@ describe('台帳一覧の埋葬者表示 (#299)', () => {
       const [lead, stacked] = rows();
       // 先頭行: 契約者名と区画Noが出る
       expect(within(lead).getByText('山田太郎')).toBeInTheDocument();
-      expect(within(lead).getByText('A-56')).toBeInTheDocument();
+      expect(within(lead).getByText('第1期-A-56')).toBeInTheDocument();
       expect(within(lead).getByText('故人一郎')).toBeInTheDocument();
       // 積み上げ行: 契約者名・区画Noは繰り返さず、埋葬者だけが出る
       expect(within(stacked).queryByText('山田太郎')).toBeNull();
-      expect(within(stacked).queryByText('A-56')).toBeNull();
+      expect(within(stacked).queryByText('第1期-A-56')).toBeNull();
       expect(within(stacked).getByText('故人花子')).toBeInTheDocument();
     });
 
@@ -175,7 +175,7 @@ describe('台帳一覧の埋葬者表示 (#299)', () => {
       );
 
       expect(
-        screen.getByLabelText('A-56 の詳細を開く（埋葬者: 故人花子）')
+        screen.getByLabelText('第1期-A-56 の詳細を開く（埋葬者: 故人花子）')
       ).toBeInTheDocument();
     });
   });
