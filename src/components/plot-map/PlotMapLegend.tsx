@@ -6,6 +6,7 @@ export const PLOT_MAP_STATUS_LABELS: Record<PlotMapStatus, string> = {
   reserved: '予約',
   contracted: '契約済み',
   unsellable: '売却不可',
+  unknown: '台帳にない',
 };
 
 const LEGEND: Array<{ status: PlotMapStatus; className: string }> = [
@@ -13,6 +14,7 @@ const LEGEND: Array<{ status: PlotMapStatus; className: string }> = [
   { status: 'reserved', className: 'bg-kohaku-50 border-kohaku' },
   { status: 'contracted', className: 'bg-white border-gin' },
   { status: 'unsellable', className: 'bg-yellow-100 border-yellow-400' },
+  { status: 'unknown', className: 'bg-kinari border-dashed border-gin' },
 ];
 
 export function PlotMapLegend({ className }: { className?: string }) {

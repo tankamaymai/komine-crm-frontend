@@ -55,8 +55,16 @@ export function PlotMapPanel({ cell }: { cell: PlotMapCellView | null }) {
             新規登録へ
           </Link>
         )}
+        {cell.status === 'vacant' && (
+          <p className="text-xs text-matsu">この区画は空いています。</p>
+        )}
         {cell.status === 'unsellable' && (
           <p className="text-xs text-hai">この区画は売却できません。</p>
+        )}
+        {cell.status === 'unknown' && (
+          <p className="text-xs text-hai">
+            この番号は台帳の区画と結びついていません。空きかどうかは分かりません。
+          </p>
         )}
       </div>
     </aside>

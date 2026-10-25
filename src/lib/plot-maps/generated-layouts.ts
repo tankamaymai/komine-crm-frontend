@@ -4182,7 +4182,7 @@ export const GENERATED_LAYOUTS: PlotMapDefinition[] = [
     id: "4-RIN",
     period: "第4期",
     title: "第4期 凛",
-    sectionKeys: ["凛", "凛A", "凛B", "凛Ａ", "凛Ｂ"],
+    sectionKeys: ["凛", "凛A", "凛B", "凛C", "凛D", "凛Ａ", "凛Ｂ", "凛Ｃ", "凛Ｄ"],
     columns: 20,
     rows: 137,
     cells: [
