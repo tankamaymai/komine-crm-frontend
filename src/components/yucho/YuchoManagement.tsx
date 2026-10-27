@@ -25,6 +25,7 @@ import {
   type YuchoExportKind,
 } from '@/lib/api/yucho';
 import { generateMonthBilling } from '@/lib/api/billings';
+import { YuchoResultImport } from './YuchoResultImport';
 import {
   CLOSED_REASON_LABEL,
   daysInMonth,
@@ -472,6 +473,15 @@ export default function YuchoManagement() {
             {billingYear}年{billingMonth}月の請求を作る
           </Button>
         </div>
+
+        <YuchoResultImport
+          year={billingYear}
+          month={billingMonth}
+          onApplied={() => {
+            void refetch();
+            void refetchMonthBilling();
+          }}
+        />
 
         {/* エラー表示 */}
         {error && (
