@@ -193,6 +193,20 @@ export function buildPlotPreviewSections(
     }
   }
 
+  // まとめて買う区画（2つ目以降）
+  data.additionalPlots?.forEach((extra, i) => {
+    const items = [
+      { label: '区画', value: extra.areaName },
+      { label: '区画番号', value: extra.displayNumber || extra.plotNumber },
+      { label: '契約面積', value: `${extra.contractAreaSqm}㎡` },
+      { label: '区画位置詳細', value: extra.locationDescription || '' },
+      { label: '金額', value: extra.price != null ? formatNumber(extra.price) : '' },
+      { label: '使用料', value: extra.usageFee || '' },
+      { label: '管理料', value: extra.managementFee || '' },
+    ].filter((item) => item.value !== '');
+    sections.push({ title: `${i + 2}つ目の区画（契約者は同じ人）`, items });
+  });
+
   // 家族連絡先
   if (data.familyContacts?.length) {
     for (let i = 0; i < data.familyContacts.length; i++) {

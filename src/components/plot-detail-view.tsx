@@ -62,6 +62,13 @@ interface PlotDetailViewProps {
   onBack?: () => void;
   onDelete?: (plotCode: string, customerName: string) => void;
   onRestore?: (plotCode: string, customerName: string) => void;
+  /** scope=all のときは、今の契約者の区画を全部まとめて解約する */
+  onTerminate?: (target: {
+    scope: 'one' | 'all';
+    plotCode: string;
+    customerName: string;
+    customerId?: string;
+  }) => void;
 }
 
 // ===== ステータスラベル =====
@@ -721,7 +728,14 @@ function ConstructionInfoTab({
 
 // ===== メインコンポーネント =====
 
-export default function PlotDetailView({ plotId, onEdit, onBack, onDelete, onRestore }: PlotDetailViewProps) {
+export default function PlotDetailView({
+  plotId,
+  onEdit,
+  onBack,
+  onDelete,
+  onRestore,
+  onTerminate,
+}: PlotDetailViewProps) {
   const { user } = useAuth();
   const { plot, isLoading, error, refresh } = usePlotDetail(plotId);
   // 名称解決は無効化済みマスタを含む全件で行う（#238: 無効化しても既存データの表示を維持）
@@ -810,6 +824,13 @@ export default function PlotDetailView({ plotId, onEdit, onBack, onDelete, onRes
   // 表示用区画番号（grave_name_cd 由来）を優先。未設定時のみ legacy 値にフォールバック（#158/#164）。
   // パンくず・復活/削除ダイアログなどユーザー向け表示で一貫して使う。
   const displayPlotNumber = plot.physicalPlot.displayNumber || plot.physicalPlot.plotNumber;
+  // 人ごと解約は「今の契約者」だけが対象。申込者しかいない区画では出さない
+  const contractorId = plot.roles.find((r) => r.role === ContractRole.Contractor)?.customer.id;
+  const canTerminate =
+    !!onTerminate &&
+    plot.contractStatus === ContractStatus.Active &&
+    !!user &&
+    user.role !== 'viewer';
 
   return (
     <div className="w-full">
@@ -861,6 +882,39 @@ export default function PlotDetailView({ plotId, onEdit, onBack, onDelete, onRes
               <span>書類履歴</span>
             </Button>
           </Link>
+          {canTerminate && (
+            <Button
+              onClick={() =>
+                onTerminate?.({
+                  scope: 'one',
+                  plotCode: displayPlotNumber,
+                  customerName: primaryCustomer?.name || '',
+                })
+              }
+              variant="outline"
+              size="sm"
+              className="border-beni text-beni hover:bg-beni-50"
+            >
+              この区画を解約
+            </Button>
+          )}
+          {canTerminate && contractorId && (
+            <Button
+              onClick={() =>
+                onTerminate?.({
+                  scope: 'all',
+                  plotCode: displayPlotNumber,
+                  customerName: primaryCustomer?.name || '',
+                  customerId: contractorId,
+                })
+              }
+              variant="outline"
+              size="sm"
+              className="border-beni text-beni hover:bg-beni-50"
+            >
+              この人の全区画を解約
+            </Button>
+          )}
           {/* terminated 状態のみ「契約を復活」ボタンを表示（誤操作リカバリ用） */}
           {plot.contractStatus === ContractStatus.Terminated && onRestore && (
             <Button

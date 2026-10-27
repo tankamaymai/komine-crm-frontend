@@ -18,6 +18,10 @@ import {
   Gender,
   RestoreContractRequest,
   RestoreContractResponse,
+  TerminateContractRequest,
+  TerminateContractResponse,
+  TerminateAllByContractorRequest,
+  TerminateAllByContractorResponse,
   GraveClassificationsResponse,
   BillingRecordStatus,
   CreatePhysicalPlotRequest,
@@ -555,9 +559,9 @@ async function mockCreatePlot(
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     physicalPlot: {
-      id: `physical-${newId}`,
-      plotNumber: request.physicalPlot.plotNumber,
-      areaName: request.physicalPlot.areaName,
+      id: request.physicalPlot.id ?? `physical-${newId}`,
+      plotNumber: request.physicalPlot.plotNumber ?? '',
+      areaName: request.physicalPlot.areaName ?? '',
       areaSqm: request.physicalPlot.areaSqm || 3.6,
       status: PhysicalPlotStatus.SoldOut,
       mapId: null,
@@ -900,6 +904,47 @@ export async function restoreContract(
   }
 
   return apiPost<RestoreContractResponse>(`/plots/${id}/restore`, request);
+}
+
+/**
+ * 1区画の契約解約（active → terminated）
+ * reason は履歴に記録される。誤操作は restoreContract で戻せる
+ */
+export async function terminateContract(
+  id: string,
+  request: TerminateContractRequest
+): Promise<ApiResponse<TerminateContractResponse>> {
+  if (shouldUseMockData()) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return {
+      success: true,
+      data: { message: '契約区画を解約しました', id, contractStatus: ContractStatus.Terminated },
+    };
+  }
+
+  return apiPost<TerminateContractResponse>(`/plots/${id}/terminate`, request);
+}
+
+/**
+ * その人が今の契約者になっている区画を、まとめて解約する
+ * reason は各区画の履歴に記録される。戻すときは1区画ずつ restoreContract
+ */
+export async function terminateAllByContractor(
+  customerId: string,
+  request: TerminateAllByContractorRequest
+): Promise<ApiResponse<TerminateAllByContractorResponse>> {
+  if (shouldUseMockData()) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return {
+      success: true,
+      data: { message: '契約区画を解約しました', customerId, terminatedIds: [] },
+    };
+  }
+
+  return apiPost<TerminateAllByContractorResponse>(
+    `/plots/by-contractor/${customerId}/terminate-all`,
+    request
+  );
 }
 
 // ===== ヘルパー関数 =====

@@ -162,3 +162,54 @@ describe('VacantPlotPicker', () => {
     expect(screen.getByText('区画番号は必須です')).toBeInTheDocument();
   });
 });
+
+describe('VacantPlotPicker（まとめ買い）', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('ほかの段で選んだ区画は押せず、「すでに選んでいます」と出る', async () => {
+    const user = userEvent.setup();
+    const onSelect = jest.fn();
+    respond([
+      item({ id: 'p1', plotNumber: 'A-101', displayNumber: 'A-101' }),
+      item({ id: 'p2', plotNumber: 'A-102', displayNumber: 'A-102' }),
+    ]);
+    render(
+      <VacantPlotPicker
+        value=""
+        areaName="A"
+        excludeIds={['p1']}
+        onSelect={onSelect}
+        onClear={noop}
+      />
+    );
+
+    const taken = await screen.findByRole('button', { name: /A-101/ });
+    expect(taken).toBeDisabled();
+    expect(screen.getByText('この区画はすでに選んでいます')).toBeInTheDocument();
+    await user.click(taken);
+    expect(onSelect).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: /A-102/ }));
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'p2' }));
+  });
+
+  it('見出しと検索欄の id を段ごとに変えられる', () => {
+    render(
+      <VacantPlotPicker
+        value=""
+        areaName="A"
+        inputId="vacant-plot-search-extra-0"
+        label="区画番号（2つ目）"
+        onSelect={noop}
+        onClear={noop}
+      />
+    );
+
+    expect(screen.getByLabelText(/区画番号（2つ目）/)).toHaveAttribute(
+      'id',
+      'vacant-plot-search-extra-0'
+    );
+  });
+});
