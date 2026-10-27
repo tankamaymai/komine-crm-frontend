@@ -135,7 +135,7 @@ export default function PlotForm({ plotDetail, onSave, isLoading }: PlotFormProp
   const tabConfig = {
     'basic-info': {
       label: '基本情報①',
-      sections: ['physicalPlot', 'contractPlot', 'saleContract', 'customer', 'usageFee', 'managementFee', 'gravestoneInfo'],
+      sections: ['physicalPlot', 'contractPlot', 'saleContract', 'customer', 'usageFee', 'managementFee', 'gravestoneInfo', 'additionalPlots'],
     },
     'fee-info': {
       label: '基本情報②',
@@ -295,6 +295,14 @@ export default function PlotForm({ plotDetail, onSave, isLoading }: PlotFormProp
     // 合祀設定
     'collectiveBurial.burialCapacity': '埋葬上限数',
     'collectiveBurial.validityPeriodYears': '有効期間（年）',
+    // まとめて買う区画（配列内フィールド）
+    'physicalPlotId': '区画番号',
+    'areaName': '区画',
+    'contractAreaSqm': '契約面積',
+    'locationDescription': '区画位置詳細',
+    'price': '金額',
+    'usageFee': '使用料',
+    'managementFee': '管理料',
   };
 
   // 配列フィールドのセクション名
@@ -322,8 +330,10 @@ export default function PlotForm({ plotDetail, onSave, isLoading }: PlotFormProp
     const arrayMatch = path.match(/^(\w+)\.(\d+)\.(.+)$/);
     if (arrayMatch) {
       const [, section, index, field] = arrayMatch;
-      const sectionLabel = arraySectionLabels[section] || section;
       const fieldLabel = fieldLabels[field] || field;
+      // 1つ目は上の区画欄なので、追加区画は「2つ目」から数える
+      if (section === 'additionalPlots') return `${Number(index) + 2}つ目の区画 ${fieldLabel}`;
+      const sectionLabel = arraySectionLabels[section] || section;
       return `${sectionLabel}[${Number(index) + 1}] ${fieldLabel}`;
     }
 

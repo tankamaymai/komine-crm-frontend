@@ -5,8 +5,10 @@
  * このファイルにはフロントエンド固有の要素のみ残す:
  * - デフォルト値
  * - フォームデータ ⇔ APIリクエスト変換関数
+ * - まとめ買いの追加区画（画面の平たい行 ⇔ AdditionalPlotInput）
  */
 
+import { z } from 'zod';
 import {
   ContractRole,
   ContractStatus,
@@ -14,7 +16,17 @@ import {
   DmSetting,
   AddressType,
 } from '@komine/types';
-import type { CreatePlotRequest, UpdatePlotRequest, PlotDetailResponse } from '@komine/types';
+import type {
+  AdditionalPlotInput,
+  CreatePlotRequest,
+  UpdatePlotRequest,
+  PlotDetailResponse,
+} from '@komine/types';
+import {
+  physicalPlotSchema as sharedPhysicalPlotSchema,
+  plotFormSchema as sharedPlotFormSchema,
+  MAX_PLOTS_PER_REGISTRATION,
+} from '@komine/types/validations';
 import { resolveHandlerName } from '@/lib/legacy-grave-labels';
 
 // ===== スキーマと型を @komine/types から再エクスポート =====
@@ -34,7 +46,6 @@ export {
   constructionInfoSchema,
   collectiveBurialSchema,
   // 複合スキーマ
-  plotFormSchema,
   plotUpdateFormSchema,
 } from '@komine/types/validations';
 
@@ -52,7 +63,6 @@ export type {
   BuriedPersonFormData,
   ConstructionInfoFormData,
   CollectiveBurialFormData,
-  PlotFormData,
   PlotUpdateFormData,
 } from '@komine/types/validations';
 
@@ -62,10 +72,89 @@ import type {
   SaleContractFormData,
   CustomerSectionFormData,
   ApplicantSectionFormData,
-  PlotFormData,
   PlotUpdateFormData,
 } from '@komine/types/validations';
 import { normalizeYearMonth } from '@komine/types/validations';
+
+// ===== 新規登録フォームのスキーマ（まとめ買い対応） =====
+
+const blankToNull = (value: unknown) => (value === '' || value === undefined ? null : value);
+
+/** 2つ目以降の区画の1行。空き区画の候補から選んだ値を持つ */
+export const additionalPlotFormSchema = z
+  .object({
+    physicalPlotId: z.string().min(1, '区画番号を選んでください'),
+    plotNumber: z.string(),
+    displayNumber: z.string().nullable(),
+    areaName: z.string().min(1, '区画を選んでください'),
+    availableAreaSqm: z.coerce.number(),
+    contractAreaSqm: z.coerce.number(),
+    locationDescription: z.string().max(200, '位置説明は200文字以内で入力してください').nullable(),
+    price: z.preprocess(blankToNull, z.coerce.number().nonnegative('金額は0以上で入力してください').nullable()),
+    usageFee: z.string().max(50).nullable(),
+    managementFee: z.string().max(50).nullable(),
+  })
+  .superRefine((row, ctx) => {
+    if (!row.physicalPlotId) return;
+    if (!(row.contractAreaSqm > 0) || row.contractAreaSqm > row.availableAreaSqm) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `残りの広さは ${row.availableAreaSqm}㎡ までです`,
+        path: ['contractAreaSqm'],
+      });
+    }
+  });
+
+const PLOT_NUMBER_PATTERN = /^[A-Z0-9-]+$/;
+
+/**
+ * 新規登録・編集で使うフォームのスキーマ。
+ * 1つ目の区画は空き区画から選んだ id を持つ（無いと裏側が同じ番号の区画を新しく作ろうとして止まる）。
+ * 選んだ区画の番号は移行データの legacy-XXXX のこともあるため、書式チェックは手入力（id なし）のときだけ行う。
+ */
+export const plotFormSchema = sharedPlotFormSchema
+  .extend({
+    physicalPlot: sharedPhysicalPlotSchema.extend({
+      id: z.string().optional(),
+      plotNumber: z
+        .string()
+        .min(1, '区画番号は必須です')
+        .max(50, '区画番号は50文字以内で入力してください'),
+    }),
+    additionalPlots: z
+      .array(additionalPlotFormSchema)
+      .max(
+        MAX_PLOTS_PER_REGISTRATION - 1,
+        `一度に登録できる区画は${MAX_PLOTS_PER_REGISTRATION}件までです`
+      )
+      .default([]),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.physicalPlot.id && !PLOT_NUMBER_PATTERN.test(data.physicalPlot.plotNumber)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: '区画番号は半角英大文字・数字・ハイフンで入力してください',
+        path: ['physicalPlot', 'plotNumber'],
+      });
+    }
+
+    const seen = new Set<string>();
+    if (data.physicalPlot.id) seen.add(data.physicalPlot.id);
+    data.additionalPlots.forEach((extra, index) => {
+      if (!extra.physicalPlotId) return;
+      if (seen.has(extra.physicalPlotId)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'この区画はすでに選んでいます',
+          path: ['additionalPlots', index, 'physicalPlotId'],
+        });
+      }
+      seen.add(extra.physicalPlotId);
+    });
+  });
+
+export type AdditionalPlotFormData = z.infer<typeof additionalPlotFormSchema>;
+export type PlotFormData = z.infer<typeof plotFormSchema>;
 
 /**
  * 終納請求年月の表示用正規化（types #31）。
@@ -161,21 +250,65 @@ export const defaultPlotFormData: PlotFormData = {
   buriedPersons: [],
   constructionInfos: [],
   collectiveBurial: null,
+  additionalPlots: [],
 };
 
+/** 「もう1区画足す」で増える空の行。区画（エリア）は1つ目と同じものを最初から選んでおく */
+export function createAdditionalPlotRow(areaName = ''): AdditionalPlotFormData {
+  return {
+    physicalPlotId: '',
+    plotNumber: '',
+    displayNumber: null,
+    areaName,
+    availableAreaSqm: 0,
+    contractAreaSqm: 0,
+    locationDescription: null,
+    price: null,
+    usageFee: null,
+    managementFee: null,
+  };
+}
+
 // ===== フォームデータ → APIリクエスト変換 =====
+
+/**
+ * 追加区画の1行を API の形にする。
+ * 料金は計算区分・請求月などを1つ目からそのまま使い、金額と面積だけその区画の値にする
+ * （請求月が無いと、毎月の管理料請求の対象に入らない）。
+ */
+function toAdditionalPlotInput(
+  extra: AdditionalPlotFormData,
+  base: Pick<CreatePlotRequest, 'usageFee' | 'managementFee'>
+): AdditionalPlotInput {
+  const area = String(extra.contractAreaSqm);
+  return {
+    physicalPlot: { id: extra.physicalPlotId, plotNumber: extra.plotNumber, areaName: extra.areaName },
+    contractPlot: {
+      contractAreaSqm: extra.contractAreaSqm,
+      locationDescription: extra.locationDescription || undefined,
+    },
+    ...(extra.price != null ? { saleContract: { price: extra.price } } : {}),
+    ...(extra.usageFee ? { usageFee: { ...base.usageFee, usageFee: extra.usageFee, area } } : {}),
+    ...(extra.managementFee
+      ? { managementFee: { ...base.managementFee, managementFee: extra.managementFee, area } }
+      : {}),
+  };
+}
 
 /**
  * PlotFormData を CreatePlotRequest に変換
  */
 export function plotFormDataToCreateRequest(formData: PlotFormData): CreatePlotRequest {
-  return {
-    physicalPlot: {
-      plotNumber: formData.physicalPlot.plotNumber,
-      areaName: formData.physicalPlot.areaName,
-      areaSqm: formData.physicalPlot.areaSqm,
-      notes: formData.physicalPlot.notes || undefined,
-    },
+  const request: CreatePlotRequest = {
+    // 選んだ区画は id だけで決まる。番号を送ると、裏側の書式チェックで legacy-XXXX が弾かれる
+    physicalPlot: formData.physicalPlot.id
+      ? { id: formData.physicalPlot.id }
+      : {
+        plotNumber: formData.physicalPlot.plotNumber,
+        areaName: formData.physicalPlot.areaName,
+        areaSqm: formData.physicalPlot.areaSqm,
+        notes: formData.physicalPlot.notes || undefined,
+      },
     contractPlot: {
       contractAreaSqm: formData.contractPlot.contractAreaSqm,
       locationDescription: formData.contractPlot.locationDescription || undefined,
@@ -358,6 +491,12 @@ export function plotFormDataToCreateRequest(formData: PlotFormData): CreatePlotR
       }
       : undefined,
   };
+
+  const additionalPlots = formData.additionalPlots.filter((extra) => extra.physicalPlotId);
+  if (additionalPlots.length > 0) {
+    request.additionalPlots = additionalPlots.map((extra) => toAdditionalPlotInput(extra, request));
+  }
+  return request;
 }
 
 /**
@@ -759,5 +898,6 @@ export function plotDetailToFormData(detail: PlotDetailResponse): PlotFormData {
         notes: detail.collectiveBurial.notes,
       }
       : null,
+    additionalPlots: [],
   };
 }

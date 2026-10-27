@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Gender, PaymentStatus } from '@komine/types';
 import { defaultApplicant } from '@/lib/validations/plot-form';
 import { VacantPlotPicker } from './VacantPlotPicker';
+import { AdditionalPlotsFields } from './AdditionalPlotsFields';
 import { digitsOnly } from '@/lib/format';
 
 export function BasicInfoTab({
@@ -16,6 +17,7 @@ export function BasicInfoTab({
   watch,
   setValue,
   errors,
+  control,
   viewMode = false,
   masterData,
   isEditing = false,
@@ -54,6 +56,12 @@ export function BasicInfoTab({
     }
   }, [sectionsByPeriod, areaName]);
 
+  // 区画（エリア）を変えたら、前に選んだ番号は別のエリアのものなので外す
+  const clearSelectedPlot = () => {
+    setValue('physicalPlot.id', undefined, { shouldDirty: true });
+    setValue('physicalPlot.plotNumber', '', { shouldDirty: true });
+  };
+
   return (
     <div className="space-y-6">
       {/* Section 1: 物理区画情報 */}
@@ -78,12 +86,17 @@ export function BasicInfoTab({
             <VacantPlotPicker
               value={watch('physicalPlot.plotNumber') || ''}
               areaName={watch('physicalPlot.areaName') || undefined}
+              excludeIds={(watch('additionalPlots') ?? [])
+                .map((plot) => plot.physicalPlotId)
+                .filter(Boolean)}
               onSelect={(plot) => {
+                // 選んだ区画そのものに契約を付ける。id が無いと裏側が同じ番号の区画を新しく作ろうとして止まる
+                setValue('physicalPlot.id', plot.id, { shouldDirty: true });
                 setValue('physicalPlot.plotNumber', plot.plotNumber, { shouldDirty: true });
                 // 面積は選んだ区画の実面積を初期値にする（手入力の 3.6 決め打ちを避ける）
                 setValue('physicalPlot.areaSqm', plot.areaSqm, { shouldDirty: true });
               }}
-              onClear={() => setValue('physicalPlot.plotNumber', '', { shouldDirty: true })}
+              onClear={clearSelectedPlot}
               error={errors.physicalPlot?.plotNumber?.message}
             />
           )}
@@ -107,6 +120,7 @@ export function BasicInfoTab({
                   onValueChange={(v) => {
                     setSelectedPeriod(v);
                     setValue('physicalPlot.areaName', '');
+                    if (!isEditing && v && v !== selectedPeriod) clearSelectedPlot();
                   }}
                   placeholder="期を選択..."
                 >
@@ -122,7 +136,10 @@ export function BasicInfoTab({
                   <ViewModeSelect
                     label=""
                     value={watch('physicalPlot.areaName') || ''}
-                    onValueChange={(v) => setValue('physicalPlot.areaName', v)}
+                    onValueChange={(v) => {
+                      if (!isEditing && v && v !== areaName) clearSelectedPlot();
+                      setValue('physicalPlot.areaName', v);
+                    }}
                     placeholder="区画を選択..."
                   >
                     {sectionsByPeriod[selectedPeriod]?.map((section) => (
@@ -182,6 +199,18 @@ export function BasicInfoTab({
           />
         </div>
       </div>
+
+      {/* まとめ買いの2つ目以降。新規登録のときだけ出す */}
+      {!isEditing && !viewMode && (
+        <AdditionalPlotsFields
+          register={register}
+          watch={watch}
+          setValue={setValue}
+          errors={errors}
+          control={control}
+          masterData={masterData}
+        />
+      )}
 
       {/* Section 3: 販売契約情報 */}
       <div className="border rounded-lg p-4">

@@ -2,10 +2,26 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { deletePlot, restoreContract } from '@/lib/api/plots';
+import {
+  deletePlot,
+  restoreContract,
+  terminateContract,
+  terminateAllByContractor,
+} from '@/lib/api/plots';
 import { showError, showSuccess, showApiSuccess, showApiError } from '@/lib/toast';
 import PlotDetailView from '@/components/plot-detail-view';
-import { DeleteConfirmDialog, RestoreConfirmDialog } from '@/components/plot-detail-sidebar';
+import {
+  DeleteConfirmDialog,
+  RestoreConfirmDialog,
+  TerminateConfirmDialog,
+} from '@/components/plot-detail-sidebar';
+
+type TerminateTarget = {
+  scope: 'one' | 'all';
+  plotCode: string;
+  customerName: string;
+  customerId?: string;
+};
 
 export default function PlotDetailPage() {
   const params = useParams();
@@ -16,6 +32,8 @@ export default function PlotDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<{ code: string; name: string } | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [terminateTarget, setTerminateTarget] = useState<TerminateTarget | null>(null);
+  const [isTerminating, setIsTerminating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleDelete = async () => {
@@ -56,6 +74,28 @@ export default function PlotDetailPage() {
     }
   };
 
+  const handleTerminate = async (reason: string) => {
+    if (!terminateTarget) return;
+    setIsTerminating(true);
+    try {
+      const response =
+        terminateTarget.scope === 'all' && terminateTarget.customerId
+          ? await terminateAllByContractor(terminateTarget.customerId, { reason })
+          : await terminateContract(plotId, { reason });
+      if (response.success) {
+        setTerminateTarget(null);
+        showSuccess(response.data.message);
+        setRefreshKey((k) => k + 1);
+      } else {
+        showApiError('契約解約', response.error?.message, response.error?.details);
+      }
+    } catch {
+      showError('解約中にエラーが発生しました');
+    } finally {
+      setIsTerminating(false);
+    }
+  };
+
   return (
     <div className="flex-1 p-3 md:p-6 overflow-auto">
       <PlotDetailView
@@ -65,6 +105,7 @@ export default function PlotDetailPage() {
         onEdit={() => router.push(`/plots/${plotId}/edit`)}
         onDelete={(code, name) => setDeleteTarget({ code, name })}
         onRestore={(code, name) => setRestoreTarget({ code, name })}
+        onTerminate={setTerminateTarget}
       />
 
       <DeleteConfirmDialog
@@ -83,6 +124,18 @@ export default function PlotDetailPage() {
         isLoading={isRestoring}
         onRestore={handleRestore}
         onClose={() => setRestoreTarget(null)}
+      />
+
+      <TerminateConfirmDialog
+        key={terminateTarget ? `${terminateTarget.scope}-${terminateTarget.customerId ?? ''}` : 'closed'}
+        isOpen={!!terminateTarget}
+        scope={terminateTarget?.scope ?? 'one'}
+        plotNumber={terminateTarget?.plotCode || ''}
+        customerName={terminateTarget?.customerName || ''}
+        customerId={terminateTarget?.customerId}
+        isLoading={isTerminating}
+        onTerminate={handleTerminate}
+        onClose={() => setTerminateTarget(null)}
       />
     </div>
   );

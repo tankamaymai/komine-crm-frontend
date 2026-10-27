@@ -32,6 +32,12 @@ interface VacantPlotPickerProps {
   /** 選択を解除したとき */
   onClear: () => void;
   error?: string | undefined;
+  /** ほかの段ですでに選んだ区画。候補には出すが押せなくする */
+  excludeIds?: string[];
+  /** 1画面に複数並べるときの検索欄 id */
+  inputId?: string;
+  /** 見出し。まとめ買いの2つ目以降で「区画番号（2つ目）」のように変える */
+  label?: string;
 }
 
 export function VacantPlotPicker({
@@ -40,6 +46,9 @@ export function VacantPlotPicker({
   onSelect,
   onClear,
   error,
+  excludeIds = [],
+  inputId = 'vacant-plot-search',
+  label = '区画番号',
 }: VacantPlotPickerProps) {
   const [search, setSearch] = useState('');
   const [items, setItems] = useState<VacantPlotItem[]>([]);
@@ -98,8 +107,8 @@ export function VacantPlotPicker({
 
   return (
     <div>
-      <Label htmlFor="vacant-plot-search">
-        区画番号
+      <Label htmlFor={inputId}>
+        {label}
         <span className="text-beni"> *</span>
       </Label>
 
@@ -127,7 +136,7 @@ export function VacantPlotPicker({
       ) : (
         <>
           <Input
-            id="vacant-plot-search"
+            id={inputId}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="区画番号で絞り込み（例: 56）"
@@ -148,23 +157,35 @@ export function VacantPlotPicker({
               </p>
             ) : (
               <ul>
-                {items.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => onSelect(item)}
-                      className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-matsu-50"
-                    >
-                      <span className="font-mono text-sm text-sumi">
-                        {item.displayNumber || item.plotNumber}
-                      </span>
-                      <span className="text-xs text-hai tabular-nums">
-                        空き {item.availableAreaSqm}㎡
-                        {item.availableAreaSqm !== item.areaSqm && ` / 全体 ${item.areaSqm}㎡`}
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                {items.map((item) => {
+                  const taken = excludeIds.includes(item.id);
+                  return (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        disabled={taken}
+                        onClick={() => onSelect(item)}
+                        className={cn(
+                          'flex w-full items-center justify-between px-3 py-2 text-left',
+                          taken ? 'cursor-not-allowed bg-kinari/60 text-hai' : 'hover:bg-matsu-50'
+                        )}
+                      >
+                        <span className="font-mono text-sm text-sumi">
+                          {item.displayNumber || item.plotNumber}
+                          {taken && (
+                            <span className="ml-2 font-sans text-xs text-beni">
+                              この区画はすでに選んでいます
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-xs text-hai tabular-nums">
+                          空き {item.availableAreaSqm}㎡
+                          {item.availableAreaSqm !== item.areaSqm && ` / 全体 ${item.areaSqm}㎡`}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

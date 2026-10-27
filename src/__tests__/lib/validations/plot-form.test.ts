@@ -18,6 +18,7 @@ import {
   plotFormDataToCreateRequest,
   plotFormDataToUpdateRequest,
   plotDetailToFormData,
+  createAdditionalPlotRow,
 } from '@/lib/validations/plot-form';
 import type { PlotFormData, PlotUpdateFormData } from '@/lib/validations/plot-form';
 import type { PlotDetailResponse } from '@komine/types';
@@ -86,6 +87,7 @@ function validPlotFormData(): PlotFormData {
     familyContacts: [],
     buriedPersons: [],
     collectiveBurial: null,
+    additionalPlots: [],
   };
 }
 
@@ -1465,5 +1467,163 @@ describe('plotDetailToFormData', () => {
     const formData = plotDetailToFormData(detail);
 
     expect(formData.gravestoneInfo).toBeNull();
+  });
+});
+
+describe('まとめ買い登録（additionalPlots）', () => {
+  const FIRST_ID = '11111111-1111-4111-8111-111111111111';
+  const NEXT_ID = '22222222-2222-4222-8222-222222222222';
+
+  function withExtras(extras: PlotFormData['additionalPlots']): PlotFormData {
+    const data = validPlotFormData();
+    return {
+      ...data,
+      physicalPlot: { ...data.physicalPlot, id: FIRST_ID },
+      additionalPlots: extras,
+    };
+  }
+
+  function extraRow(overrides: Partial<PlotFormData['additionalPlots'][number]> = {}) {
+    return {
+      ...createAdditionalPlotRow('A'),
+      physicalPlotId: NEXT_ID,
+      plotNumber: 'A-002',
+      displayNumber: 'A-002',
+      availableAreaSqm: 1.8,
+      contractAreaSqm: 1.8,
+      ...overrides,
+    };
+  }
+
+  describe('入力チェック', () => {
+    it('追加区画なしでも今までどおり通る', () => {
+      expect(plotFormSchema.safeParse(validPlotFormData()).success).toBe(true);
+    });
+
+    it('一覧から選んだ区画なら、移行データの番号（legacy-XXXX）でも通る', () => {
+      const data = withExtras([]);
+      data.physicalPlot.plotNumber = 'legacy-1234';
+      expect(plotFormSchema.safeParse(data).success).toBe(true);
+    });
+
+    it('手入力の番号（id なし）は今までどおり書式を確かめる', () => {
+      const data = validPlotFormData();
+      data.physicalPlot.plotNumber = 'legacy-1234';
+      const result = plotFormSchema.safeParse(data);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]).toEqual(
+          expect.objectContaining({
+            path: ['physicalPlot', 'plotNumber'],
+            message: '区画番号は半角英大文字・数字・ハイフンで入力してください',
+          })
+        );
+      }
+    });
+
+    it('1つ目で選んだ区画の id を落とさない', () => {
+      const result = plotFormSchema.safeParse(withExtras([]));
+      expect(result.success && result.data.physicalPlot.id).toBe(FIRST_ID);
+    });
+
+    it('残りの広さまでなら通る', () => {
+      expect(plotFormSchema.safeParse(withExtras([extraRow()])).success).toBe(true);
+    });
+
+    it('残りより大きい面積は止める', () => {
+      const result = plotFormSchema.safeParse(withExtras([extraRow({ contractAreaSqm: 2 })]));
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues).toContainEqual(
+          expect.objectContaining({
+            path: ['additionalPlots', 0, 'contractAreaSqm'],
+            message: '残りの広さは 1.8㎡ までです',
+          })
+        );
+      }
+    });
+
+    it('区画番号を選んでいない段は止める', () => {
+      const result = plotFormSchema.safeParse(withExtras([createAdditionalPlotRow('A')]));
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toBe('区画番号を選んでください');
+      }
+    });
+
+    it('1つ目と同じ区画は止める', () => {
+      const result = plotFormSchema.safeParse(withExtras([extraRow({ physicalPlotId: FIRST_ID })]));
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues).toContainEqual(
+          expect.objectContaining({
+            path: ['additionalPlots', 0, 'physicalPlotId'],
+            message: 'この区画はすでに選んでいます',
+          })
+        );
+      }
+    });
+
+    it('20件（1つ目＋19）を超えると止める', () => {
+      const extras = Array.from({ length: 20 }, (_, i) =>
+        extraRow({ physicalPlotId: `33333333-3333-4333-8333-${String(i).padStart(12, '0')}` })
+      );
+      expect(plotFormSchema.safeParse(withExtras(extras)).success).toBe(false);
+      expect(plotFormSchema.safeParse(withExtras(extras.slice(0, 19))).success).toBe(true);
+    });
+  });
+
+  describe('裏側へ送る形', () => {
+    it('1つ目は選んだ区画の id だけを送る（同じ番号の区画を新しく作らせない）', () => {
+      const request = plotFormDataToCreateRequest(withExtras([]));
+      expect(request.physicalPlot).toEqual({ id: FIRST_ID });
+      expect(request.additionalPlots).toBeUndefined();
+    });
+
+    it('id が無ければ送らない', () => {
+      const request = plotFormDataToCreateRequest(validPlotFormData());
+      expect(request.physicalPlot).not.toHaveProperty('id');
+    });
+
+    it('2つ目以降は区画 id・契約面積・金額を区画ごとに送る', () => {
+      const request = plotFormDataToCreateRequest(
+        withExtras([extraRow({ price: 500000, locationDescription: '北側' })])
+      );
+      expect(request.additionalPlots).toEqual([
+        {
+          physicalPlot: { id: NEXT_ID, plotNumber: 'A-002', areaName: 'A' },
+          contractPlot: { contractAreaSqm: 1.8, locationDescription: '北側' },
+          saleContract: { price: 500000 },
+        },
+      ]);
+    });
+
+    it('料金は1つ目の区分・請求月を引き継ぎ、金額と面積だけその区画の値にする', () => {
+      const data = withExtras([extraRow({ usageFee: '300000', managementFee: '6000' })]);
+      data.usageFee = { calculationType: '1', taxType: '2', usageFee: '600000', area: '3.6' };
+      data.managementFee = {
+        calculationType: '1',
+        billingMonth: '3',
+        managementFee: '12000',
+        area: '3.6',
+        lastBillingMonth: null,
+      };
+
+      const [extra] = plotFormDataToCreateRequest(data).additionalPlots!;
+
+      expect(extra.usageFee).toEqual(
+        expect.objectContaining({ calculationType: '1', taxType: '2', usageFee: '300000', area: '1.8' })
+      );
+      expect(extra.managementFee).toEqual(
+        expect.objectContaining({ billingMonth: '3', managementFee: '6000', area: '1.8' })
+      );
+    });
+
+    it('金額・料金が空の段は、その項目を送らない', () => {
+      const [extra] = plotFormDataToCreateRequest(withExtras([extraRow()])).additionalPlots!;
+      expect(extra).not.toHaveProperty('saleContract');
+      expect(extra).not.toHaveProperty('usageFee');
+      expect(extra).not.toHaveProperty('managementFee');
+    });
   });
 });

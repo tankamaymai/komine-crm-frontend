@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { createPlot } from '@/lib/api/plots';
 import { PlotFormData, plotFormDataToCreateRequest } from '@/lib/validations/plot-form';
-import { showError, showApiSuccess, showApiError } from '@/lib/toast';
+import { showError, showSuccess, showApiSuccess, showApiError } from '@/lib/toast';
 import PlotForm from '@/components/plot-form';
 import PageHeader from '@/components/page-header';
 import { DesktopOnlyGate } from '@/components/desktop-only-gate';
@@ -20,7 +20,12 @@ export default function NewPlotPage() {
       const request = plotFormDataToCreateRequest(data);
       const response = await createPlot(request);
       if (response.success) {
-        showApiSuccess('作成', '区画');
+        const plotCount = 1 + (request.additionalPlots?.length ?? 0);
+        if (plotCount > 1) {
+          showSuccess(`${plotCount}区画を、同じお客様でまとめて登録しました`);
+        } else {
+          showApiSuccess('作成', '区画');
+        }
         router.push('/plots');
       } else {
         showApiError('区画登録', response.error?.message, response.error?.details);
