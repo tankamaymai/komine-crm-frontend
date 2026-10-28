@@ -100,6 +100,8 @@ interface InvoiceItem {
 
 interface DocumentFormProps {
   documentId?: string;
+  /** 区画のページから開いたときの区画（契約区画）の番号 */
+  contractPlotId?: string;
   customerId?: string;
   templateId?: TemplateId;
   /** 区画詳細データ（自動挿入用） */
@@ -268,6 +270,7 @@ function getSeasonGreetingByMonth(month: number): string {
 
 export function DocumentForm({
   documentId,
+  contractPlotId: initialContractPlotId,
   customerId: initialCustomerId,
   templateId,
   plotDetail,
@@ -303,7 +306,7 @@ export function DocumentForm({
     status: 'draft',
     description: '',
     notes: '',
-    contractPlotId: '',
+    contractPlotId: initialContractPlotId || '',
     customerId: initialCustomerId || '',
     templateType:
       templateId && PDF_TEMPLATE_IDS.has(templateId) ? templateId : '',
@@ -388,6 +391,8 @@ export function DocumentForm({
       type: docType,
       templateType: PDF_TEMPLATE_IDS.has(templateId) ? templateId : '',
       contractPlotId: plotDetail?.id || prev.contractPlotId,
+      customerId:
+        (plotDetail && getPrimaryCustomer(plotDetail)?.id) || prev.customerId,
     }));
 
     // 区画詳細がある場合はテンプレートデータを自動挿入
