@@ -10,7 +10,50 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { PermitField, PermitPage } from '@komine/types';
 import { PERMIT_CERTIFICATE_PAGES } from '@komine/types';
+import {
+  PERMIT_CERTIFICATE_FIELD_ROOM,
+  overflowsRoom,
+  textSpanPt,
+  type PermitFieldRoom,
+} from '@/lib/permit-field-room';
+import {
+  measureTextPt,
+  permitPrintFont,
+  useFontsReadyVersion,
+} from '@/lib/permit-text-measure';
 import { FitZoomFrame } from './document-preview-zoom';
+
+const CERTIFICATE_BASE_FILE = PERMIT_CERTIFICATE_PAGES[0]?.baseFile;
+
+/** 入力欄の枠の太さと内側の余白（px）。文字の書き出しを刷る位置にそろえるために足し引きする */
+const INPUT_EDGE_PX = 3;
+
+/** 横書きの欄の枠（pt）。使える範囲を基本にし、文字がそれより長ければ文字の長さまで伸ばす */
+function horizontalBoxPt(
+  field: PermitField,
+  room: PermitFieldRoom | undefined,
+  textWidthPt: number
+): { left: number; right: number } {
+  const align = field.align ?? 'left';
+  let base: { left: number; right: number };
+  if (room) {
+    if (align === 'center') {
+      const half = Math.min(
+        room.left !== undefined ? field.x - room.left : Infinity,
+        room.right - field.x
+      );
+      base = { left: field.x - half, right: field.x + half };
+    } else if (align === 'right') {
+      base = { left: room.left ?? field.x - (field.widthPt ?? 100), right: field.x };
+    } else {
+      base = { left: field.x, right: room.right };
+    }
+  } else {
+    base = textSpanPt(field, field.widthPt ?? 100);
+  }
+  const text = textSpanPt(field, textWidthPt);
+  return { left: Math.min(base.left, text.left), right: Math.max(base.right, text.right) };
+}
 
 interface PermitLivePreviewProps {
   /** 省略時は許可証（1ページ） */
@@ -25,15 +68,21 @@ function PermitFieldOverlay({
   value,
   onChange,
   scalePxPerPt,
+  room,
+  textWidthPt,
+  overflow,
 }: {
   field: PermitField;
   page: PermitPage;
   value: string;
   onChange: (value: string) => void;
   scalePxPerPt: number;
+  room: PermitFieldRoom | undefined;
+  textWidthPt: number;
+  overflow: boolean;
 }) {
   const scale = scalePxPerPt;
-  const widthPx = (field.widthPt ?? 100) * scale;
+  let widthPx = (field.widthPt ?? 100) * scale;
   const heightPx = (field.heightPt ?? field.fontSize * 1.5) * scale;
   const fontPx = field.fontSize * scale;
 
@@ -47,14 +96,9 @@ function PermitFieldOverlay({
     leftPx = field.x * scale;
     topPx = (page.heightPt - field.y) * scale;
   } else {
-    const widthPt = field.widthPt ?? 100;
-    if (field.align === 'center') {
-      leftPx = (field.x - widthPt / 2) * scale;
-    } else if (field.align === 'right') {
-      leftPx = (field.x - widthPt) * scale;
-    } else {
-      leftPx = field.x * scale;
-    }
+    const box = horizontalBoxPt(field, room, textWidthPt);
+    leftPx = box.left * scale - INPUT_EDGE_PX;
+    widthPx = (box.right - box.left) * scale + INPUT_EDGE_PX * 2;
     topPx = (page.heightPt - field.y - field.fontSize) * scale;
   }
 
@@ -75,27 +119,26 @@ function PermitFieldOverlay({
   };
 
   const isPostalDigit = field.hint === '1';
-  const showFieldLabel = !isPostalDigit;
 
-  const inputClassName = isPostalDigit
-    ? 'block bg-transparent border border-transparent rounded-[1px] px-0 outline-none focus:bg-white/40 focus:border-matsu/50 focus:border-dashed font-mincho text-sumi text-center placeholder:text-hai/40'
-    : 'block bg-white/70 border border-dashed border-matsu/40 rounded-[2px] px-1 outline-none focus:bg-ai/5 focus:border-ai focus:border-solid focus:ring-2 focus:ring-ai/20 font-mincho text-sumi placeholder:text-hai/60';
+  const inputClassName = cn(
+    permitPrintFont.className,
+    isPostalDigit
+      ? 'block bg-transparent border border-transparent rounded-[1px] px-0 outline-none focus:bg-white/40 focus:border-matsu/50 focus:border-dashed text-sumi text-center placeholder:text-hai/40'
+      : 'block bg-white/60 border border-dashed border-matsu/40 rounded-[2px] px-[2px] outline-none focus:bg-ai/5 focus:border-ai focus:border-solid focus:ring-2 focus:ring-ai/20 text-sumi placeholder:text-hai/60',
+    overflow &&
+      'border-solid border-beni bg-beni-50 ring-2 ring-beni-300 focus:border-beni focus:bg-beni-50 focus:ring-beni-300 focus-visible:!outline-beni'
+  );
 
   if (field.direction === 'vertical') {
     return (
       <div style={commonStyle}>
-        <span
-          className="pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] font-sans text-matsu-dark bg-white px-1 rounded border border-gin whitespace-nowrap"
-          aria-hidden
-        >
-          {field.label}
-        </span>
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
           rows={1}
-          className={cn(inputClassName, 'h-full w-full resize-none overflow-hidden font-mincho')}
+          title={field.label}
+          className={cn(inputClassName, 'h-full w-full resize-none overflow-hidden')}
           style={{
             fontSize: `${fontPx}px`,
             writingMode: 'vertical-rl',
@@ -126,16 +169,10 @@ function PermitFieldOverlay({
 
   return (
     <div style={commonStyle}>
-      {showFieldLabel && (
-        <span
-          className="pointer-events-none absolute -top-4 left-0 text-[10px] font-sans text-matsu-dark bg-white px-1 rounded border border-gin whitespace-nowrap"
-          aria-hidden
-        >
-          {field.label}
-        </span>
-      )}
       <input
         type="text"
+        title={field.label}
+        data-overflow={overflow ? 'true' : 'false'}
         inputMode={field.hint === '1' ? 'numeric' : undefined}
         maxLength={field.hint === '1' ? 1 : undefined}
         value={value}
@@ -169,6 +206,21 @@ function PermitPagePreview({
   const renderWidth = page.widthPt * scalePxPerPt;
   const renderHeight = page.heightPt * scalePxPerPt;
 
+  // 書体を読み込み終えたら描き直し、幅を測り直す
+  const canMeasure = useFontsReadyVersion() > 0;
+  const rooms =
+    page.baseFile === CERTIFICATE_BASE_FILE ? PERMIT_CERTIFICATE_FIELD_ROOM : undefined;
+  const fieldStates = page.fields.map((field) => {
+    const value = templateData[field.id] || '';
+    const isHorizontal = (field.direction ?? 'horizontal') === 'horizontal';
+    const textWidthPt =
+      canMeasure && isHorizontal ? measureTextPt(value, field.fontSize, field.bold) : 0;
+    const room = rooms?.[field.id];
+    const overflow = !!room && !!value && overflowsRoom(field, textWidthPt, room);
+    return { field, value, textWidthPt, room, overflow };
+  });
+  const overflowLabels = fieldStates.filter((s) => s.overflow).map((s) => s.field.label);
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs text-hai">
@@ -179,6 +231,19 @@ function PermitPagePreview({
           {page.widthPt.toFixed(0)} × {page.heightPt.toFixed(0)} pt
         </span>
       </div>
+      {overflowLabels.length > 0 && (
+        <div
+          role="alert"
+          className="rounded border border-beni-200 bg-beni-50 px-3 py-2 text-xs leading-relaxed text-beni-dark"
+        >
+          <p className="font-semibold">
+            はみ出している欄があります：{overflowLabels.join('、')}
+          </p>
+          <p>
+            赤い欄は、刷ると台紙の線や「殿」「号」などの字にかかります。文字を減らすか、住所なら2列目に分けてください。
+          </p>
+        </div>
+      )}
       <FitZoomFrame>
       <div
         className="relative mx-auto bg-white border border-gin shadow-elegant-sm rounded overflow-hidden"
@@ -203,14 +268,17 @@ function PermitPagePreview({
             className="pointer-events-none select-none"
           />
         )}
-        {page.fields.map((field) => (
+        {fieldStates.map(({ field, value, textWidthPt, room, overflow }) => (
           <PermitFieldOverlay
             key={`${field.pageIndex}-${field.id}`}
             field={field}
             page={page}
-            value={templateData[field.id] || ''}
+            value={value}
             onChange={(v) => onTemplateDataChange(field.id, v)}
             scalePxPerPt={scalePxPerPt}
+            room={room}
+            textWidthPt={textWidthPt}
+            overflow={overflow}
           />
         ))}
         {page.fields.length === 0 && (
@@ -268,7 +336,7 @@ export function PermitLivePreview({
       </div>
 
       <p className="text-xs text-hai leading-relaxed">
-        背景はテンプレート画像です。入力欄の位置に PDF 出力でも文字が印字されます。
+        背景は台紙の絵です。入れた文字は、刷るときと同じ書体・大きさ・位置で出ます。
       </p>
 
       <div className="rounded-lg border border-gin bg-shiro p-3">
