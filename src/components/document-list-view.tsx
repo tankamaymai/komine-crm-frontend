@@ -37,6 +37,8 @@ import {
 } from 'lucide-react';
 
 interface DocumentListViewProps {
+  /** 契約区画IDでフィルター（顧客IDより優先） */
+  contractPlotId?: string;
   /** 顧客IDでフィルター */
   customerId?: string;
   /** 顧客名（表示用） */
@@ -54,6 +56,7 @@ interface DocumentListViewProps {
 }
 
 export function DocumentListView({
+  contractPlotId,
   customerId,
   onCreateNew,
   onViewDetail,
@@ -62,9 +65,9 @@ export function DocumentListView({
   onPrintText,
   onBack,
 }: DocumentListViewProps) {
-  // 顧客IDが指定されている場合は初期フィルターとして設定
+  // 区画や顧客が指定されている場合は初期フィルターとして設定
   const { data, isLoading, error, params, setPage, setFilters, refresh } = useDocumentList(
-    customerId ? { customerId } : undefined
+    contractPlotId ? { contractPlotId } : customerId ? { customerId } : undefined
   );
   const [searchText, setSearchText] = useState('');
 

@@ -12,7 +12,7 @@ export default function PlotDocumentHistoryPage() {
   return (
     <DesktopOnlyGate description="書類履歴の閲覧・PDFプレビューは画面幅 768px 以上のPCでの利用をお願いします。">
       <DocumentManagement
-        customerId={plotId}
+        contractPlotId={plotId}
         initialMode="list"
         onBack={() => router.push(`/plots/${plotId}`)}
       />

@@ -21,6 +21,8 @@ import { PlotDetailResponse } from '@komine/types';
 type ViewMode = 'templates' | 'list' | 'detail' | 'create' | 'edit';
 
 interface DocumentManagementProps {
+  /** 区画のページから開いたときの区画（契約区画）の番号 */
+  contractPlotId?: string;
   customerId?: string;
   customerName?: string;
   /** 区画詳細データ（区画コンテキストから書類作成時、フォームに自動挿入するため） */
@@ -41,6 +43,7 @@ const TEMPLATE_LABELS: Record<TemplateId, string> = {
 };
 
 export function DocumentManagement({
+  contractPlotId,
   customerId,
   customerName,
   plotDetail,
@@ -168,8 +171,11 @@ export function DocumentManagement({
     else handleBackToTemplates();
   }, [onBack, handleBackToTemplates]);
 
+  // 区画や顧客のページから開いたか
+  const fromPlotOrCustomer = !!(contractPlotId || customerId);
+
   const formOnBack =
-    customerId
+    fromPlotOrCustomer
       ? handleBackToTemplates
       : viewMode === 'create'
         ? handleBackToTemplates
@@ -232,14 +238,15 @@ export function DocumentManagement({
 
         {viewMode === 'list' && (
           <DocumentListView
+            contractPlotId={contractPlotId}
             customerId={customerId}
             customerName={customerName}
-            onCreateNew={customerId ? handleCreateNew : handleBackToTemplates}
+            onCreateNew={fromPlotOrCustomer ? handleCreateNew : handleBackToTemplates}
             onViewDetail={handleViewDetail}
             onDownload={handleDownload}
             onDownloadFile={handleDownloadFile}
             onPrintText={handlePrintText}
-            onBack={customerId ? undefined : handleBackToTemplates}
+            onBack={fromPlotOrCustomer ? undefined : handleBackToTemplates}
           />
         )}
 
@@ -260,6 +267,7 @@ export function DocumentManagement({
         {viewMode === 'create' && (
           <div className="p-3 md:p-6">
             <DocumentForm
+              contractPlotId={contractPlotId}
               customerId={customerId}
               templateId={selectedTemplateId || undefined}
               savedFreeform={savedFreeform}
