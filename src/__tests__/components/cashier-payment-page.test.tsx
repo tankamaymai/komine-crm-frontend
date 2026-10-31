@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { BillingCategory, type UnpaidBillingItem } from '@komine/types';
@@ -47,6 +47,7 @@ const unpaidTanaka: UnpaidBillingItem = {
   category: BillingCategory.ManagementFee,
   year: THIS_YEAR,
   remainingAmount: 5000,
+  nextPaymentDate: null,
 };
 
 const unpaidSato: UnpaidBillingItem = {
@@ -60,6 +61,7 @@ const unpaidSato: UnpaidBillingItem = {
   category: BillingCategory.UsageFee,
   year: THIS_YEAR,
   remainingAmount: 3000,
+  nextPaymentDate: null,
 };
 
 beforeEach(() => {
@@ -71,7 +73,7 @@ beforeEach(() => {
   });
   settleRemaining.mockResolvedValue({
     success: true,
-    data: { id: 'p-1' },
+    data: { remainingAmount: 0, nextPaymentDate: null },
   });
 });
 
@@ -130,16 +132,24 @@ describe('CashierPaymentPage', () => {
     expect(await screen.findByText('田中花子')).toBeInTheDocument();
     await user.click(screen.getByText('田中花子'));
 
-    expect(
-      await screen.findByText(
-        `田中花子 / 東-1 / ${THIS_YEAR}年の管理料 / 5000円 を、今日の日付で入れますか？`
-      )
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText('今回の金額')).toHaveValue(5000);
+    expect(screen.queryByLabelText('次に払う日')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '入れる' }));
 
     await waitFor(() => {
-      expect(settleRemaining).toHaveBeenCalledWith({ billingId: 'b-1' });
+      expect(settleRemaining).toHaveBeenCalledWith({
+        billingId: 'b-1',
+        paymentAmount: 5000,
+        paymentDate: new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Tokyo',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date()),
+        nextPaymentDate: undefined,
+        seenRemaining: 5000,
+      });
     });
     await waitFor(() => {
       expect(screen.queryByText('田中花子')).not.toBeInTheDocument();
@@ -172,7 +182,9 @@ describe('CashierPaymentPage', () => {
     await user.click(screen.getByRole('button', { name: '探す' }));
 
     expect(await screen.findByText('探せませんでした。もう一度試してください')).toBeInTheDocument();
-    expect(screen.queryByText('保存できませんでした。もう一度試してください')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('保存できませんでした。入金も次の日も残っていません。もう一度押してください')
+    ).not.toBeInTheDocument();
   });
 
   it('探すがAPI失敗でメッセージ無しなら探せませんでしたを出す', async () => {
@@ -187,7 +199,9 @@ describe('CashierPaymentPage', () => {
     await user.click(screen.getByRole('button', { name: '探す' }));
 
     expect(await screen.findByText('探せませんでした。もう一度試してください')).toBeInTheDocument();
-    expect(screen.queryByText('保存できませんでした。もう一度試してください')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('保存できませんでした。入金も次の日も残っていません。もう一度押してください')
+    ).not.toBeInTheDocument();
   });
 
   it('権限が無いと入れるボタンが無い、または押せない', async () => {
@@ -201,11 +215,7 @@ describe('CashierPaymentPage', () => {
     expect(await screen.findByText('田中花子')).toBeInTheDocument();
     await user.click(screen.getByText('田中花子'));
 
-    expect(
-      await screen.findByText(
-        `田中花子 / 東-1 / ${THIS_YEAR}年の管理料 / 5000円 を、今日の日付で入れますか？`
-      )
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText('今回の金額')).toBeInTheDocument();
 
     const enterButton = screen.queryByRole('button', { name: '入れる' });
     if (enterButton) {
@@ -213,5 +223,55 @@ describe('CashierPaymentPage', () => {
     } else {
       expect(enterButton).not.toBeInTheDocument();
     }
+  });
+
+  it('護持費を0円にして次の日が空だと止まり、日を書くと入金は作らず案内を出す', async () => {
+    settleRemaining.mockResolvedValue({
+      success: true,
+      data: { remainingAmount: 5000, nextPaymentDate: '2026-12-01' },
+    });
+    const user = userEvent.setup();
+    render(<CashierPaymentPage />);
+
+    await user.type(screen.getByRole('textbox'), '田中');
+    await user.click(screen.getByRole('button', { name: '探す' }));
+    await user.click(await screen.findByText('田中花子'));
+
+    fireEvent.change(screen.getByLabelText('今回の金額'), { target: { value: '0' } });
+    expect(screen.queryByLabelText('もらった日')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '入れる' }));
+    expect(await screen.findByText('次に払う日を書いてください')).toBeInTheDocument();
+    expect(settleRemaining).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('次に払う日'), { target: { value: '2026-12-01' } });
+    await user.click(screen.getByRole('button', { name: '入れる' }));
+
+    await waitFor(() => {
+      expect(settleRemaining).toHaveBeenCalledWith({
+        billingId: 'b-1',
+        paymentAmount: 0,
+        paymentDate: undefined,
+        nextPaymentDate: '2026-12-01',
+        seenRemaining: 5000,
+      });
+    });
+    expect(await screen.findByText('次に払う日を残しました')).toBeInTheDocument();
+    expect(screen.getByText('田中花子')).toBeInTheDocument();
+  });
+
+  it('使用料の0円は1円以上と出て送らない', async () => {
+    const user = userEvent.setup();
+    render(<CashierPaymentPage />);
+
+    await user.type(screen.getByRole('textbox'), '田中');
+    await user.click(screen.getByRole('button', { name: '探す' }));
+    await user.click(await screen.findByText('佐藤次郎'));
+
+    fireEvent.change(screen.getByLabelText('今回の金額'), { target: { value: '0' } });
+    expect(screen.queryByLabelText('次に払う日')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '入れる' }));
+
+    expect(await screen.findByText('今回の金額は1円以上にしてください')).toBeInTheDocument();
+    expect(settleRemaining).not.toHaveBeenCalled();
   });
 });

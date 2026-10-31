@@ -4,7 +4,7 @@ import { Fragment, useState, useEffect, useMemo, useRef, useCallback } from 'rea
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ClipboardList, Check, X, BarChart3, Hash, Layers, PieChart, Grid3X3, ChevronDown, ChevronUp, Plus, Map as MapIcon } from 'lucide-react';
+import { ClipboardList, Check, X, BarChart3, Hash, Layers, PieChart, Grid3X3, ChevronDown, ChevronUp, Plus, Map as MapIcon, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { CreateVacantPlotDialog } from '@/components/create-vacant-plot-dialog';
 import { BulkCreateVacantPlotsDialog } from '@/components/bulk-create-vacant-plots-dialog';
@@ -12,6 +12,7 @@ import { PlotMapSection } from '@/components/plot-map/PlotMapSection';
 import { VacantNumberBoard } from '@/components/plot-availability/vacant-number-board';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import MonthlyReportView from '@/components/plot-availability/monthly-report-view';
+import { downloadAreaExcel, downloadSectionExcel } from '@/components/plot-availability/inventory-excel';
 import VacantLedgerView from '@/components/plot-availability/vacant-ledger-view';
 import SalesLedgerView from '@/components/plot-availability/sales-ledger-view';
 import { findMapId, hasPlotMap, parseMapId } from '@/lib/plot-maps/overlay';
@@ -79,6 +80,8 @@ export default function PlotAvailabilityManagement() {
   const [selectedPlotType, setSelectedPlotType] = useState('all');
   const [isKpiExpanded, setIsKpiExpanded] = useState(false);
   const [isPeriodCardsExpanded, setIsPeriodCardsExpanded] = useState(true);
+  const [isExcelDownloading, setIsExcelDownloading] = useState(false);
+  const [excelError, setExcelError] = useState<string | null>(null);
 
   // API Hooks
   const { summary: inventorySummary, isLoading: isSummaryLoading, refresh: refreshSummary } = usePlotInventorySummary();
@@ -196,6 +199,19 @@ export default function PlotAvailabilityManagement() {
     sortOrder,
   );
   const displayAreaData = pickExact(areasHook.items, selectedPlotType, (item) => item.plotType);
+
+  const handleInventoryExcel = async () => {
+    setIsExcelDownloading(true);
+    setExcelError(null);
+    try {
+      if (displayMode === 'area') await downloadAreaExcel(displayAreaData);
+      else await downloadSectionExcel(displayData);
+    } catch {
+      setExcelError('Excelの作成に失敗しました');
+    } finally {
+      setIsExcelDownloading(false);
+    }
+  };
   const vacantBySection = useMemo(() => {
     const map = new Map<string, { id: string; label: string; areaSqm: number }[]>();
     for (const group of vacantHook.ledger?.groups ?? []) {
@@ -713,6 +729,17 @@ export default function PlotAvailabilityManagement() {
                 クリア
               </Button>
               <div className="flex-1" />
+              {(displayMode === 'section' || displayMode === 'area') && (
+                <button
+                  type="button"
+                  onClick={() => { void handleInventoryExcel(); }}
+                  disabled={isExcelDownloading}
+                  className="inline-flex items-center gap-1.5 rounded-elegant bg-matsu px-3 py-1.5 text-sm font-medium text-white shadow-elegant transition-colors hover:bg-matsu-dark disabled:opacity-50 cursor-pointer"
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                  {isExcelDownloading ? '作成中...' : 'エクセルで落とす'}
+                </button>
+              )}
               <span className="text-sm text-hai">
                 表示件数: <span className="font-semibold text-sumi">{displayMode === 'section' ? displayData.length : displayAreaData.length}</span>件
                 {selectedPeriod !== 'all' && <span className="ml-2 text-ai">({selectedPeriod})</span>}
@@ -726,6 +753,12 @@ export default function PlotAvailabilityManagement() {
               </span>
             </div>
           </div>
+
+          {excelError && (
+            <div className="mb-3 rounded-elegant border border-beni-200 bg-beni-50 p-3 text-sm text-beni-dark">
+              {excelError}
+            </div>
+          )}
 
           {/* データテーブル */}
           <div className="bg-white rounded-elegant-lg shadow-elegant overflow-hidden border border-gin">

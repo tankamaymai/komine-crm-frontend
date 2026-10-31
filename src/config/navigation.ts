@@ -26,12 +26,19 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: '区画残数管理', path: '/plot-availability', requiredRoles: ['viewer', 'operator', 'manager', 'admin'], icon: 'grid', description: '区画の空き状況・使用率を期別に集計' },
       { label: '書類管理', path: '/documents', requiredRoles: ['viewer', 'operator', 'manager', 'admin'], icon: 'file-text', description: '許可証・封筒などの書類を発行・管理' },
       { label: '請求書一括印刷', path: '/bulk-invoice', requiredRoles: ['operator', 'manager', 'admin'], icon: 'printer', description: '十年一回・五年一回払いの護持費のお知らせをまとめて出力' },
+      { label: 'ゆうちょ連携', path: '/yucho', requiredRoles: ['manager', 'admin'], icon: 'bank', description: '管理料の口座振替データ（CSV）を出力' },
+    ],
+  },
+  {
+    label: '入金管理',
+    description: '窓口で受けたお金と、まだ払っていない人',
+    items: [
       {
         label: '窓口入金',
         path: '/cashier',
         requiredRoles: ['viewer', 'operator', 'manager', 'admin'],
         icon: 'cash',
-        description: '窓口で名前から未払いを探して、残額をその場で入れる',
+        description: '名前から未払いを探して、もらった日と金額を入れる。護持費は次に払う日も残せる',
       },
       {
         label: '未収金一覧',
@@ -40,7 +47,6 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: 'cash',
         description: '護持費で、まだ払っていない請求を一覧する',
       },
-      { label: 'ゆうちょ連携', path: '/yucho', requiredRoles: ['manager', 'admin'], icon: 'bank', description: '管理料の口座振替データ（CSV）を出力' },
     ],
   },
   {
