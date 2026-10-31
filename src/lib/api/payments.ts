@@ -14,6 +14,7 @@ import {
   ListPaymentsQuery,
   DeletePaymentResponse,
   SettleRemainingRequest,
+  SettleRemainingResult,
 } from '@komine/types';
 import { apiDelete, apiGet, apiPost, apiPut } from './client';
 import { ApiResponse } from './types';
@@ -63,9 +64,9 @@ export function deletePayment(id: string): Promise<ApiResponse<DeletePaymentResp
   return apiDelete<DeletePaymentResponse>(`${BASE}/${id}`);
 }
 
-/** 窓口入金: 未払い残額を今日の日付で入れる */
+/** 窓口入金: もらった日・今回の金額・次に払う日を残す */
 export function settleRemaining(
   data: SettleRemainingRequest
-): Promise<ApiResponse<Payment>> {
-  return apiPost<Payment>(`${BASE}/settle-remaining`, data);
+): Promise<ApiResponse<SettleRemainingResult>> {
+  return apiPost<SettleRemainingResult>(`${BASE}/settle-remaining`, data);
 }

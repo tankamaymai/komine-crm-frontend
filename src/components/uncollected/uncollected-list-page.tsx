@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ListUncollectedBillingsQuery, UnpaidBillingItem } from '@komine/types';
 import { getUncollectedBillings } from '@/lib/api/billings';
+import { downloadUncollectedExcel } from '@/lib/billing-lists-excel';
 import PageHeader from '@/components/page-header';
 
 const SEARCH_FAILED_MESSAGE = '探せませんでした。もう一度試してください';
@@ -11,6 +12,13 @@ const EMPTY_MESSAGE = '未払いの請求はありません';
 
 function plotLabel(item: UnpaidBillingItem): string {
   return item.displayNumber ?? item.plotNumber ?? '';
+}
+
+function formatPromiseDate(value: string | null | undefined): string {
+  if (!value) return '-';
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return '-';
+  return `${match[1]}/${match[2]}/${match[3]}`;
 }
 
 function toQuery(qValue: string, yearValue: string, page: number): ListUncollectedBillingsQuery {
@@ -32,6 +40,8 @@ export default function UncollectedListPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExcelDownloading, setIsExcelDownloading] = useState(false);
+  const [excelError, setExcelError] = useState<string | null>(null);
 
   const runSearch = useCallback(async (pageToLoad: number, qValue: string, yearValue: string) => {
     setMessage(null);
@@ -65,6 +75,34 @@ export default function UncollectedListPage() {
   useEffect(() => {
     void runSearch(1, '', '');
   }, [runSearch]);
+
+  const handleExcel = async () => {
+    setIsExcelDownloading(true);
+    setExcelError(null);
+    try {
+      const limit = 100;
+      const base = toQuery(q, yearInput, 1);
+      const first = await getUncollectedBillings({ ...base, page: 1, limit });
+      if (!first.success) {
+        setExcelError(first.error.message || 'Excelの作成に失敗しました');
+        return;
+      }
+      const all = [...first.data.items];
+      for (let nextPage = 2; nextPage <= first.data.pagination.totalPages; nextPage += 1) {
+        const res = await getUncollectedBillings({ ...base, page: nextPage, limit });
+        if (!res.success) {
+          setExcelError(res.error.message || 'Excelの作成に失敗しました');
+          return;
+        }
+        all.push(...res.data.items);
+      }
+      await downloadUncollectedExcel(all);
+    } catch {
+      setExcelError('Excelの作成に失敗しました');
+    } finally {
+      setIsExcelDownloading(false);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-shiro">
@@ -118,7 +156,16 @@ export default function UncollectedListPage() {
             >
               探す
             </button>
+            <button
+              type="button"
+              onClick={() => { void handleExcel(); }}
+              disabled={isExcelDownloading || totalCount === 0}
+              className="inline-flex items-center justify-center border border-matsu text-matsu hover:bg-matsu-50 rounded-elegant px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {isExcelDownloading ? '作成中...' : 'エクセルで落とす'}
+            </button>
           </form>
+          {excelError && <p className="mt-3 text-sm text-beni">{excelError}</p>}
         </div>
 
         {message && (
@@ -147,6 +194,7 @@ export default function UncollectedListPage() {
                     <th className="px-2 md:px-4 py-3 text-left text-sm font-semibold text-sumi">区画</th>
                     <th className="px-2 md:px-4 py-3 text-left text-sm font-semibold text-sumi">年</th>
                     <th className="px-2 md:px-4 py-3 text-right text-sm font-semibold text-sumi">残額</th>
+                    <th className="px-2 md:px-4 py-3 text-left text-sm font-semibold text-sumi">次に払う日</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,6 +217,7 @@ export default function UncollectedListPage() {
                       <td className="px-2 md:px-4 py-3 text-sm text-sumi text-right">
                         {item.remainingAmount.toLocaleString('ja-JP')}
                       </td>
+                      <td className="px-2 md:px-4 py-3 text-sm text-sumi">{formatPromiseDate(item.nextPaymentDate)}</td>
                     </tr>
                   ))}
                 </tbody>

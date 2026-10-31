@@ -5,8 +5,9 @@
  * 期ごとに、区画の番号と、いま空いている広さ（㎡）。
  */
 
-import { Fragment } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { Fragment, useState } from 'react';
+import { Download, RefreshCw } from 'lucide-react';
+import { downloadVacantExcel } from '@/components/plot-availability/inventory-excel';
 import { cn } from '@/lib/utils';
 import type { VacantLedgerResponse } from '@/lib/api/plot-inventory';
 
@@ -35,6 +36,22 @@ export default function VacantLedgerView({
   error,
   onRefresh,
 }: VacantLedgerViewProps) {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleDownload = async () => {
+    if (!ledger) return;
+    setIsDownloading(true);
+    setDownloadError(null);
+    try {
+      await downloadVacantExcel(ledger);
+    } catch {
+      setDownloadError('Excelの作成に失敗しました');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   if (error) {
     return (
       <div className="p-3 md:p-6">
@@ -80,7 +97,19 @@ export default function VacantLedgerView({
           <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} aria-hidden="true" />
           更新
         </button>
+        <button
+          type="button"
+          onClick={() => { void handleDownload(); }}
+          disabled={isDownloading || !ledger}
+          className="inline-flex items-center gap-1.5 rounded-elegant bg-matsu px-3 py-1.5 text-sm font-medium text-white shadow-elegant transition-colors hover:bg-matsu-dark disabled:opacity-50 cursor-pointer"
+        >
+          <Download className="h-3.5 w-3.5" aria-hidden="true" />
+          {isDownloading ? '作成中...' : 'エクセルで落とす'}
+        </button>
       </div>
+      {downloadError && (
+        <p className="mb-3 text-sm text-beni">{downloadError}</p>
+      )}
 
       <div className="overflow-x-auto pb-2">
         <div className="flex items-start gap-4">

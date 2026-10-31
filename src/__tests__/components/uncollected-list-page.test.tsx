@@ -30,6 +30,7 @@ const unpaidTanaka: UnpaidBillingItem = {
   category: BillingCategory.ManagementFee,
   year: 2024,
   remainingAmount: 5000,
+  nextPaymentDate: '2026-12-01',
 };
 
 beforeEach(() => {
@@ -88,6 +89,7 @@ describe('UncollectedListPage', () => {
     render(<UncollectedListPage />);
 
     expect(await screen.findByText('田中花子')).toBeInTheDocument();
+    expect(screen.getByText('2026/12/01')).toBeInTheDocument();
     await user.click(screen.getByText('田中花子'));
 
     expect(mockPush).toHaveBeenCalledWith('/plots/plot-1');
