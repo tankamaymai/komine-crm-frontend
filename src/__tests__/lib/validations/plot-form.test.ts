@@ -49,10 +49,10 @@ function validSaleContract() {
     contractStatus: ContractStatus.Active,
     paymentStatus: PaymentStatus.Unpaid,
     reservationDate: '',
-    acceptanceNumber: '',
-    permitDate: '',
-    permitNumber: '',
-    startDate: '',
+    acceptanceNumber: '1476',
+    permitDate: '2024-01-05',
+    permitNumber: '1476',
+    startDate: '2024-01-10',
     notes: null,
   };
 }
@@ -1319,6 +1319,9 @@ describe('plotDetailToFormData', () => {
 
   it('レガシー形式の lastBillingMonth は読み込み時に正規化される（types #31）', () => {
     const detail = makePlotDetail({
+      acceptanceNumber: '1476',
+      permitDate: '2024-01-05',
+      startDate: '2024-01-10',
       managementFee: {
         calculationType: null,
         taxType: null,
