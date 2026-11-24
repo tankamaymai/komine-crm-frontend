@@ -263,6 +263,7 @@ export function BasicInfoTab({
           <ViewModeField
             label="承諾書番号"
             viewMode={viewMode}
+            required
             register={register('saleContract.acceptanceNumber')}
             error={errors.saleContract?.acceptanceNumber?.message}
             placeholder="例: 1476"
@@ -271,6 +272,7 @@ export function BasicInfoTab({
           <ViewModeField
             label="許可日"
             viewMode={viewMode}
+            required
             type="date"
             register={register('saleContract.permitDate')}
             error={errors.saleContract?.permitDate?.message}
@@ -279,6 +281,7 @@ export function BasicInfoTab({
           <ViewModeField
             label="開始年月日"
             viewMode={viewMode}
+            required
             type="date"
             register={register('saleContract.startDate')}
             error={errors.saleContract?.startDate?.message}

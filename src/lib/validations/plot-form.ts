@@ -138,6 +138,29 @@ export const plotFormSchema = sharedPlotFormSchema
       });
     }
 
+    const acceptanceNumber = data.saleContract.acceptanceNumber?.trim() ?? '';
+    if (!acceptanceNumber) {
+      ctx.addIssue({
+        code: 'custom',
+        message: '承諾書番号を入力してください',
+        path: ['saleContract', 'acceptanceNumber'],
+      });
+    }
+    if (!data.saleContract.permitDate) {
+      ctx.addIssue({
+        code: 'custom',
+        message: '許可日を入力してください',
+        path: ['saleContract', 'permitDate'],
+      });
+    }
+    if (!data.saleContract.startDate) {
+      ctx.addIssue({
+        code: 'custom',
+        message: '開始日を入力してください',
+        path: ['saleContract', 'startDate'],
+      });
+    }
+
     const seen = new Set<string>();
     if (data.physicalPlot.id) seen.add(data.physicalPlot.id);
     data.additionalPlots.forEach((extra, index) => {

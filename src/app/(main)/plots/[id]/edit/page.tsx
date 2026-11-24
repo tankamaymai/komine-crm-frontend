@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { updatePlot } from '@/lib/api/plots';
 import { PlotFormData, plotFormDataToUpdateRequest } from '@/lib/validations/plot-form';
+import type { UpdatePlotRequest } from '@komine/types';
 import { showError, showApiSuccess, showApiError } from '@/lib/toast';
 import PlotForm from '@/components/plot-form';
 import PageHeader from '@/components/page-header';
@@ -29,7 +30,17 @@ export default function EditPlotPage() {
       if (changeReason) {
         request.changeReason = changeReason;
       }
-      const response = await updatePlot(plotId, request);
+      let response = await updatePlot(plotId, request);
+      if (!response.success && response.error?.code === 'CONFLICT') {
+        const proceed = window.confirm(
+          response.error.message || 'この承諾書番号は、ほかの契約でも使われています。このまま使いますか？'
+        );
+        if (!proceed) return;
+        response = await updatePlot(plotId, {
+          ...request,
+          allowDuplicateAcceptanceNumber: true,
+        } as UpdatePlotRequest);
+      }
       if (response.success) {
         showApiSuccess('更新', '区画情報');
         router.push(`/plots/${plotId}`);

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { createPlot } from '@/lib/api/plots';
 import { PlotFormData, plotFormDataToCreateRequest } from '@/lib/validations/plot-form';
+import type { CreatePlotRequest } from '@komine/types';
 import { showError, showSuccess, showApiSuccess, showApiError } from '@/lib/toast';
 import PlotForm from '@/components/plot-form';
 import PageHeader from '@/components/page-header';
@@ -18,7 +19,17 @@ export default function NewPlotPage() {
     setIsLoading(true);
     try {
       const request = plotFormDataToCreateRequest(data);
-      const response = await createPlot(request);
+      let response = await createPlot(request);
+      if (!response.success && response.error?.code === 'CONFLICT') {
+        const proceed = window.confirm(
+          response.error.message || 'この承諾書番号は、ほかの契約でも使われています。このまま使いますか？'
+        );
+        if (!proceed) return;
+        response = await createPlot({
+          ...request,
+          allowDuplicateAcceptanceNumber: true,
+        } as CreatePlotRequest);
+      }
       if (response.success) {
         const plotCount = 1 + (request.additionalPlots?.length ?? 0);
         if (plotCount > 1) {
