@@ -62,6 +62,8 @@ export interface CollectiveBurialListItem {
   capacityReachedDate: string | null;
   validityPeriodYears: number;
   billingScheduledDate: string | null;
+  /** 合祀の日を手で入れたか。true のあいだは年数からの計算で上書きしない */
+  billingScheduledDateManual?: boolean;
   billingStatus: BillingStatus;
   billingAmount: number | null;
   notes: string | null;
@@ -222,12 +224,14 @@ export async function getCollectiveBurialList(
 
     if (params?.search) {
       const searchLower = params.search.toLowerCase();
-      filtered = filtered.filter(
-        (item) =>
-          item.plotNumber.toLowerCase().includes(searchLower) ||
+      filtered = filtered.filter((item) => {
+        const shownNumber = (item.displayNumber?.trim() ? item.displayNumber : item.plotNumber).toLowerCase();
+        return (
+          shownNumber.includes(searchLower) ||
           item.applicantName?.toLowerCase().includes(searchLower) ||
           item.applicantNameKana?.toLowerCase().includes(searchLower)
-      );
+        );
+      });
     }
 
     if (params?.billingStatus) {
@@ -270,10 +274,10 @@ export async function getCollectiveBurialList(
       return 0;
     });
 
-    // ページネーション
-    const page = params?.page || 1;
-    const limit = params?.limit || 50;
-    const start = (page - 1) * limit;
+    // ページを指定したときだけ区切る。画面の一覧は全員分を返す。
+    const page = params?.page;
+    const limit = page ? params?.limit || 50 : filtered.length || 50;
+    const start = page ? (page - 1) * limit : 0;
     const paginatedItems = filtered.slice(start, start + limit);
 
     return {
@@ -281,7 +285,7 @@ export async function getCollectiveBurialList(
       data: {
         items: paginatedItems,
         pagination: {
-          page,
+          page: page ?? 1,
           limit,
           totalCount: filtered.length,
           totalPages: Math.ceil(filtered.length / limit),
@@ -290,20 +294,55 @@ export async function getCollectiveBurialList(
     };
   }
 
-  // リアルAPI呼び出し
-  const queryParams = new URLSearchParams();
-  if (params?.page) queryParams.append('page', String(params.page));
-  if (params?.limit) queryParams.append('limit', String(params.limit));
-  if (params?.search) queryParams.append('search', params.search);
-  if (params?.billingStatus) queryParams.append('billingStatus', params.billingStatus);
-  if (params?.year) queryParams.append('year', String(params.year));
-  if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
-  if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+  // 画面は年ごとに全員を並べる。1ページ（最大1000件）で足りなければ続きも取る。
+  const pageSize = 1000;
+  const loadPage = (page: number) => {
+    const queryParams = new URLSearchParams();
+    queryParams.set('page', String(page));
+    queryParams.set('limit', String(pageSize));
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.billingStatus) queryParams.append('billingStatus', params.billingStatus);
+    if (params?.year) queryParams.append('year', String(params.year));
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    return apiRequest<CollectiveBurialListResponse>(`/collective-burials?${queryParams.toString()}`);
+  };
 
-  const queryString = queryParams.toString();
-  const url = `/collective-burials${queryString ? `?${queryString}` : ''}`;
+  if (params?.page) {
+    const queryParams = new URLSearchParams();
+    queryParams.set('page', String(params.page));
+    if (params.limit) queryParams.set('limit', String(params.limit));
+    if (params.search) queryParams.append('search', params.search);
+    if (params.billingStatus) queryParams.append('billingStatus', params.billingStatus);
+    if (params.year) queryParams.append('year', String(params.year));
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+    return apiRequest<CollectiveBurialListResponse>(`/collective-burials?${queryParams.toString()}`);
+  }
 
-  return apiRequest<CollectiveBurialListResponse>(url);
+  const first = await loadPage(1);
+  if (!first.success) return first;
+  const totalPages = first.data.pagination.totalPages;
+  if (totalPages <= 1) return first;
+
+  const items = [...first.data.items];
+  for (let page = 2; page <= totalPages; page += 1) {
+    const next = await loadPage(page);
+    if (!next.success) return next;
+    items.push(...next.data.items);
+  }
+  return {
+    success: true,
+    data: {
+      items,
+      pagination: {
+        page: 1,
+        limit: items.length,
+        totalCount: first.data.pagination.totalCount,
+        totalPages: 1,
+      },
+    },
+  };
 }
 
 /**

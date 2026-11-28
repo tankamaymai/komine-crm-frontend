@@ -6,7 +6,9 @@ import {
   calculateElapsedYears,
   calculateScheduledCollectiveBurialDate,
   findFinalBurialDate,
+  groupCollectiveBurialsByYear,
   resolveCountdownBaseDate,
+  scheduledDateHeading,
   JURIN_RULE_TRANSITION_DATE,
   VALIDITY_RULE_TABLE,
   STANDARD_VALIDITY_YEARS,
@@ -260,6 +262,26 @@ describe('collective-burial-rules', () => {
 
     it('最終納骨者に埋葬日が無ければ null（契約日起点にフォールバックさせる）', () => {
       expect(findFinalBurialDate([{ isFinalBurial: true, burialDate: null }])).toBe(null);
+    });
+
+    it('年をまたぐ人も、日付が無い人も、それぞれのまとまりに入る', () => {
+      const groups = groupCollectiveBurialsByYear(
+        [
+          { billingScheduledDate: '2038-10-01', id: 'later' },
+          { billingScheduledDate: '2026-08-13', id: 'this-year' },
+          { billingScheduledDate: null, id: 'undated' },
+        ],
+        2026,
+      );
+      expect(groups.map((group) => group.year)).toEqual([2026, 2038, 0]);
+      expect(groups[0]?.items.map((item) => item.id)).toEqual(['this-year']);
+      expect(groups[2]?.items.map((item) => item.id)).toEqual(['undated']);
+    });
+
+    it('手で入れた合祀日は、自動計算と呼ばない', () => {
+      expect(scheduledDateHeading(true, true)).toBe('合祀予定日（手で入れた日）');
+      expect(scheduledDateHeading(true, false)).toBe('合祀予定日');
+      expect(scheduledDateHeading(false, false)).toBe('合祀予定日（自動計算）');
     });
 
     it('最終納骨者が複数居た場合は最も遅い埋葬日を採る（合祀の前倒しを防ぐ）', () => {

@@ -21,6 +21,7 @@ import {
   findFinalBurialDate,
   inferValidityPeriodYears,
   resolveCountdownBaseDate,
+  scheduledDateHeading,
   summarizeValidityRule,
 } from '@/lib/collective-burial-rules';
 
@@ -248,9 +249,11 @@ export default function CollectiveBurialDetailView({
                   </div>
                 )}
 
-                {/* 合祀予定日（自動計算ルール） */}
+                {/* 合祀予定日。手で入れた日は「自動計算」と呼ばない */}
                 <div className="mt-6 p-4 bg-kinari rounded-lg border border-gin">
-                  <Label className="text-sm text-hai mb-2 block">合祀予定日（自動計算）</Label>
+                  <Label className="text-sm text-hai mb-2 block">
+                    {scheduledDateHeading(Boolean(data.billingScheduledDate), data.billingScheduledDateManual === true)}
+                  </Label>
                   {scheduledDate ? (
                     <p className="text-lg font-semibold text-sumi">
                       {formatDateWithEra(scheduledDate)}
@@ -272,6 +275,11 @@ export default function CollectiveBurialDetailView({
                     {!finalBurialDate && ' — 最終納骨者が指定されると最終納骨日起点に切り替わります'}
                   </p>
                   <p className="text-xs text-hai mt-1">自動判定: {ruleBasis}</p>
+                  {data.billingScheduledDateManual && data.billingScheduledDate && (
+                    <p className="text-xs text-kohaku-dark mt-1">
+                      この日は、年数から計算した日ではなく、手で入れた日です。
+                    </p>
+                  )}
                   {isManualOverride && (
                     <p className="text-xs text-kohaku-dark mt-1">
                       この区画は手動指定 {data.validityPeriodYears} 年 / 自動判定 {inferredRule} 年 です。業務上の例外指定（短縮など）の場合はそのままで問題ありません。
@@ -343,10 +351,17 @@ export default function CollectiveBurialDetailView({
               <div className="p-5">
                 {data.billingScheduledDate ? (
                   <div>
-                    <Label className="text-sm text-hai">合祀の予定日</Label>
+                    <Label className="text-sm text-hai">
+                      {data.billingScheduledDateManual ? '合祀の予定日（手で入れた日）' : '合祀の予定日'}
+                    </Label>
                     <p className="text-lg font-semibold text-sumi mt-1">
                       {formatDateWithEra(new Date(data.billingScheduledDate))}
                     </p>
+                    {data.billingScheduledDateManual && (
+                      <p className="text-xs text-kohaku-dark mt-1">
+                        この日は、年数から計算した日ではなく、手で入れた日です。
+                      </p>
+                    )}
                   </div>
                 ) : scheduledDateFallback ? (
                   <div>
