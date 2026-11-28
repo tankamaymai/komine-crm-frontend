@@ -236,6 +236,45 @@ export function calculateScheduledCollectiveBurialDate(
   return result;
 }
 
+/**
+ * 一覧を、合祀する年ごとにまとめる。
+ * 年の選択欄とは切り離す。選んだだけで見出しが先に変わらないようにするため。
+ * 日付が無い人は一番下にまとめる。
+ */
+export function groupCollectiveBurialsByYear<T extends { billingScheduledDate: string | null }>(
+  items: readonly T[],
+  currentYear: number,
+): { year: number; items: T[]; totalCount: number }[] {
+  const groups = new Map<number, T[]>();
+  for (const item of items) {
+    const match = item.billingScheduledDate?.match(/^(\d{4})-/);
+    const year = match ? Number(match[1]) : 0;
+    const list = groups.get(year);
+    if (list) list.push(item);
+    else groups.set(year, [item]);
+  }
+  return Array.from(groups.entries())
+    .map(([year, groupItems]) => ({
+      year,
+      items: groupItems,
+      totalCount: groupItems.length,
+    }))
+    .sort((a, b) => {
+      if (a.year === currentYear) return -1;
+      if (b.year === currentYear) return 1;
+      if (a.year === 0) return 1;
+      if (b.year === 0) return -1;
+      return a.year - b.year;
+    });
+}
+
+/** 合祀の日の見出し。手で入れた日を「自動計算」と呼ばない。 */
+export function scheduledDateHeading(hasSavedDate: boolean, isManual: boolean): string {
+  if (hasSavedDate && isManual) return '合祀予定日（手で入れた日）';
+  if (hasSavedDate) return '合祀予定日';
+  return '合祀予定日（自動計算）';
+}
+
 /** 内部用: Date | string | null → Date | null 変換 */
 function toDate(value: Date | string | null | undefined): Date | null {
   if (!value) return null;

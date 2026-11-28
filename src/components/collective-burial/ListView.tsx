@@ -17,7 +17,6 @@ import {
   useCollectiveBurialStats,
 } from '@/hooks/useCollectiveBurials';
 import {
-  CollectiveBurialListItem,
   CollectiveBurialReleaseTiming,
   getCollectiveBurialSettings,
   updateCollectiveBurialSettings,
@@ -27,6 +26,7 @@ import {
   calculateElapsedYears,
   calculateScheduledCollectiveBurialDate,
   findFinalBurialDate,
+  groupCollectiveBurialsByYear,
   resolveCountdownBaseDate,
 } from '@/lib/collective-burial-rules';
 import PageHeader from '@/components/page-header';
@@ -44,6 +44,9 @@ export default function CollectiveBurialListView({
   // フィルター状態
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
+  // 検索を押したあとの条件。選んだだけでは一覧の見出しを変えない。
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [appliedYear, setAppliedYear] = useState<number | 'all'>('all');
   const [releaseTiming, setReleaseTiming] = useState<CollectiveBurialReleaseTiming>('october');
   const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
   const releaseChecked = useRef(false);
@@ -83,7 +86,7 @@ export default function CollectiveBurialListView({
 
   // 検索ヒット件数（全件）と、フィルタ適用中かどうか（#174 / #175 / #187）
   const totalHits = pagination?.totalCount ?? 0;
-  const hasActiveFilter = searchQuery !== '' || selectedYear !== 'all';
+  const hasActiveFilter = appliedSearch !== '' || appliedYear !== 'all';
 
   // 年の選択肢を生成
   const availableYears = useMemo(() => {
@@ -93,8 +96,12 @@ export default function CollectiveBurialListView({
 
   // 検索実行
   const handleSearch = () => {
+    const nextSearch = searchQuery.trim();
+    setSearchQuery(nextSearch);
+    setAppliedSearch(nextSearch);
+    setAppliedYear(selectedYear);
     search({
-      search: searchQuery || undefined,
+      search: nextSearch || undefined,
       year: selectedYear === 'all' ? undefined : selectedYear,
     });
   };
@@ -103,48 +110,16 @@ export default function CollectiveBurialListView({
   const resetFilters = () => {
     setSearchQuery('');
     setSelectedYear('all');
+    setAppliedSearch('');
+    setAppliedYear('all');
     search({});
   };
 
-  // 年別グループ化
-  const groupedByYear = useMemo(() => {
-    if (selectedYear !== 'all') {
-      return [{
-        year: selectedYear,
-        items: items,
-        totalCount: items.length,
-      }];
-    }
-
-    const groups = new Map<number, CollectiveBurialListItem[]>();
-    items.forEach(item => {
-      if (!item.billingScheduledDate) return;
-      const year = new Date(item.billingScheduledDate).getFullYear();
-      if (!groups.has(year)) {
-        groups.set(year, []);
-      }
-      groups.get(year)!.push(item);
-    });
-
-    // 請求予定日がないものは別グループに
-    const noDateItems = items.filter(item => !item.billingScheduledDate);
-    if (noDateItems.length > 0) {
-      groups.set(0, noDateItems);
-    }
-
-    return Array.from(groups.entries())
-      .map(([year, groupItems]) => ({
-        year,
-        items: groupItems,
-        totalCount: groupItems.length,
-      }))
-      .sort((a, b) => {
-        // 今年のグループを最上部に固定
-        if (a.year === currentYear) return -1;
-        if (b.year === currentYear) return 1;
-        return a.year - b.year;
-      });
-  }, [items, selectedYear, currentYear]);
+  // 年別グループ化。選んでいる年ではなく、今出ている人の日付でまとめる。
+  const groupedByYear = useMemo(
+    () => groupCollectiveBurialsByYear(items, currentYear),
+    [items, currentYear],
+  );
 
   // 日付フォーマット
   const formatDate = (dateStr: string | null): string => {
@@ -279,14 +254,14 @@ export default function CollectiveBurialListView({
           {hasActiveFilter && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
               <span className="text-hai">適用中:</span>
-              {searchQuery && (
+              {appliedSearch && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-cha-50 text-cha-800 border border-cha-200 rounded-full font-medium">
-                  検索「{searchQuery}」
+                  検索「{appliedSearch}」
                 </span>
               )}
-              {selectedYear !== 'all' && (
+              {appliedYear !== 'all' && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-cha-50 text-cha-800 border border-cha-200 rounded-full font-medium">
-                  合祀する年: {selectedYear}年
+                  合祀する年: {appliedYear}年
                 </span>
               )}
               <button
@@ -324,23 +299,8 @@ export default function CollectiveBurialListView({
               title="該当する合祀データが見つかりませんでした"
               description={
                 hasActiveFilter
-                  ? '検索語か、合祀する年の条件を緩めて再検索してください。'
+                  ? '上の「条件をクリア」を押すと、全員の一覧に戻ります。'
                   : 'まだ合祀者が登録されていません。台帳の区画編集→「埋葬情報」タブの「合祀対象区画」から登録できます。'
-              }
-              action={
-                hasActiveFilter ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSearchQuery('');
-                      setSelectedYear('all');
-                      search({});
-                    }}
-                  >
-                    条件をクリア
-                  </Button>
-                ) : undefined
               }
             />
           ) : (
@@ -509,7 +469,7 @@ export default function CollectiveBurialListView({
               {hasActiveFilter && (
                 <span className="text-xs text-hai">※ 検索条件は未適用・全期間の合計です</span>
               )}
-              {yearlyStats.slice(0, 5).map(stat => (
+              {yearlyStats.map(stat => (
                 <span key={stat.year} className="text-xs md:text-sm bg-kinari px-2 md:px-3 py-1 rounded-full border border-gin">
                   <span className="font-semibold text-sumi">{stat.year}年</span>
                   <span className="text-hai ml-1">{stat.count}件</span>
